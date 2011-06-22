@@ -8,6 +8,8 @@ include $(GOROOT)/src/Make.cmd
 
 test: format all
 	./${TARG} -t
+	./${TARG} bash
+	./${TARG} git
 
 format:
 	${GOFMT} .

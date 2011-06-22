@@ -8,6 +8,8 @@ import (
 	"io"
 	"json"
 	"log"
+	"os"
+	"path/filepath"
 )
 
 var packages = []string{
@@ -24,45 +26,70 @@ var packages = []string{
 const url = "http://api.oswatershed.org/api/0.1/package.json?package=%s&cb=go"
 
 var (
-	client = new(http.Client)
-	isTest = flag.Bool("t", false, "run tests")
+	isTest  = flag.Bool("t", false, "run tests")
+	srcPath = flag.String("path", "/home/strings/github/vanilla/srcpkgs/", "path to srcpkgs")
 )
+
+type Distro struct {
+	Version string
+}
 
 type Package struct {
 	Name    string "package"
 	Latest  string
-	Distros *json.RawMessage
+	Distros []Distro
+}
+
+func init() {
+	log.SetPrefix("watch: ")
+	log.SetFlags(log.Lshortfile)
 }
 
 func main() {
 	flag.Parse()
 	if *isTest {
 		test()
+		return
 	}
+	if len(flag.Args()) != 1 {
+		flag.Usage()
+		return
+	}
+	pack, err := latest(flag.Arg(0))
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(pack.Latest)
 }
 
 func test() {
-	fmt.Printf("%-20.20s %s\n", "package", "version")
-	fmt.Printf("%-20.20s %s\n", "-------", "-------")
-	c := make(chan int)
-	for _, p := range packages {
-		go latest(p, c)
+	packages, err := filepath.Glob(*srcPath + "/*")
+	if err != nil {
+		log.Fatal(err)
 	}
-	for i := 0; i < len(packages); i++ {
-		<-c
+	for i, dir := range packages {
+		if i >= 20 {
+			break
+		}
+		_, dir := filepath.Split(dir)
+		pack, err := latest(dir)
+		if err != nil {
+			fmt.Printf("%04.0v %-20.20s %s\n", i, dir, "error")
+			continue
+		}
+		fmt.Printf("%04.0v %-20.20s %-10.10s arch %s\n", i, dir, pack.Latest, pack.Distros[0].Version)
 	}
 }
 
-func latest(name string, c chan int) {
+func latest(name string) (*Package, os.Error) {
+	client := new(http.Client)
 	res, err := client.Do(request(name))
-	defer func() { c <- 1 }()
 	if err != nil {
-		log.Println(err)
-		return
+		log.Fatal(err)
+		return nil, err
 	}
 	if res.StatusCode != 200 {
-		fmt.Printf("%-20.20s %s\n", name, "error")
-		return
+		return nil, fmt.Errorf("Http GET error %s", res.Status)
 	}
 	buf := new(bytes.Buffer)
 	io.Copy(buf, res.Body)
@@ -71,20 +98,17 @@ func latest(name string, c chan int) {
 	err = json.Unmarshal(b[3:len(b)-1], p)
 	if err != nil {
 		fmt.Println(err)
-		return
+		return p, err
 	}
-	fmt.Printf("%-20.20s %s\n", p.Name, p.Latest)
-	return
+	return p, nil
 }
 
 func request(name string) *http.Request {
-	req, err := http.NewRequest("GET", fmt.Sprintf(url, name), nil)
+	url := fmt.Sprintf(url, name)
+	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Fatal(err)
-	}
-	req.URL, err = http.ParseURL(fmt.Sprintf(url, name))
-	if err != nil {
-		log.Fatal(err)
+		return nil
 	}
 	req.ProtoMajor = 1
 	req.ProtoMinor = 1
