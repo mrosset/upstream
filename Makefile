@@ -7,9 +7,10 @@ GOFMT=gofmt -l -w
 include $(GOROOT)/src/Make.cmd
 
 test: format all
-	./${TARG} -t
-	./${TARG} bash
-	./${TARG} git
+	#./${TARG} -t
+	#./${TARG} bash
+	#./${TARG} git
+	./${TARG} -ld ccache
 
 format:
 	${GOFMT} .

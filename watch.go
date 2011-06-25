@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"html"
 	"http"
 	"io"
 	"json"
@@ -23,11 +24,16 @@ var packages = []string{
 	"failthis",
 }
 
-const url = "http://api.oswatershed.org/api/0.1/package.json?package=%s&cb=go"
+const (
+	watershed = "http://api.oswatershed.org/api/0.1/package.json?package=%s&cb=go"
+	debian    = "http://packages.debian.org/%s/%s"
+	drelease  = "wheezy"
+)
 
 var (
-	isTest  = flag.Bool("t", false, "run tests")
-	srcPath = flag.String("path", "/home/strings/github/vanilla/srcpkgs/", "path to srcpkgs")
+	isLongDesc = flag.Bool("ld", false, "get long description from debian packages")
+	isTest     = flag.Bool("t", false, "run tests")
+	srcPath    = flag.String("path", "/home/strings/github/vanilla/srcpkgs/", "path to srcpkgs")
 )
 
 type Distro struct {
@@ -53,6 +59,13 @@ func main() {
 	}
 	if len(flag.Args()) != 1 {
 		flag.Usage()
+		return
+	}
+	if *isLongDesc {
+		err := longDesc(flag.Arg(0))
+		if err != nil {
+			fmt.Println(err)
+		}
 		return
 	}
 	pack, err := latest(flag.Arg(0))
@@ -81,9 +94,49 @@ func test() {
 	}
 }
 
+func longDesc(name string) os.Error {
+	client := new(http.Client)
+	url := fmt.Sprintf(debian, drelease, name)
+	res, err := client.Do(request(url))
+	if err != nil {
+		log.Fatal(err)
+		return err
+	}
+	if res.StatusCode != 200 {
+		return fmt.Errorf("Http GET error %s", res.Status)
+	}
+	buf := new(bytes.Buffer)
+	_, err = io.Copy(buf, res.Body)
+	if err != nil {
+		return err
+	}
+	doc, err := html.Parse(buf)
+	if err != nil {
+		return err
+	}
+	//TODO: move this to a proper function
+	var f func(*html.Node)
+	f = func(n *html.Node) {
+		if n.Type == html.ElementNode && n.Data == "div" {
+			if len(n.Attr) > 0 {
+				if n.Attr[0].Val == "pdesc" {
+					fmt.Printf("%s\n\n", n.Child[1].Child[0].Data)
+					fmt.Printf("*long desc*\n%s", n.Child[1].Child[2].Child[0].Data)
+				}
+			}
+		}
+		for _, c := range n.Child {
+			f(c)
+		}
+	}
+	f(doc)
+	return nil
+}
+
 func latest(name string) (*Package, os.Error) {
 	client := new(http.Client)
-	res, err := client.Do(request(name))
+	url := fmt.Sprintf(watershed, name)
+	res, err := client.Do(request(url))
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
@@ -103,8 +156,7 @@ func latest(name string) (*Package, os.Error) {
 	return p, nil
 }
 
-func request(name string) *http.Request {
-	url := fmt.Sprintf(url, name)
+func request(url string) *http.Request {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -113,7 +165,8 @@ func request(name string) *http.Request {
 	req.ProtoMajor = 1
 	req.ProtoMinor = 1
 	req.TransferEncoding = []string{"chunked"}
-	req.Header.Set("Accept-Encoding", "gzip,deflate")
+	//FIXME: Debian doesnt always return compressed
+	//req.Header.Set("Accept-Encoding", "gzip,deflate")
 	req.Header.Set("Connection", "keep-alive")
 	return req
 }
