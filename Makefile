@@ -1,16 +1,15 @@
 include $(GOROOT)/src/Make.inc
 
-TARG=watch
-GOFILES=watch.go
+TARG=upstream
+GOFILES=upstream.go
 GOFMT=gofmt -l -w
 
 include $(GOROOT)/src/Make.cmd
 
 test: format all
-	#./${TARG} -t
-	#./${TARG} bash
-	#./${TARG} git
-	./${TARG} -ld ccache
+	./${TARG} -c
+	./${TARG} bash
+	./${TARG} git
 
 format:
 	${GOFMT} .

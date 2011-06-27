@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"exec"
 	"flag"
 	"fmt"
 	"html"
@@ -11,6 +12,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var packages = []string{
@@ -30,9 +32,14 @@ const (
 	drelease  = "wheezy"
 )
 
+const (
+	ARCHLINUX = iota
+)
+
 var (
+	isCheck    = flag.Bool("c", false, "check upstream version against our versions")
+	isSync     = flag.Bool("s", false, "cache oswatershed and srpkgs")
 	isLongDesc = flag.Bool("ld", false, "get long description from debian packages")
-	isTest     = flag.Bool("t", false, "run tests")
 	srcPath    = flag.String("path", "/home/strings/github/vanilla/srcpkgs/", "path to srcpkgs")
 )
 
@@ -43,22 +50,30 @@ type Distro struct {
 type Package struct {
 	Name    string "package"
 	Latest  string
+	Vanilla string
 	Distros []Distro
+	Check   bool
 }
 
 func init() {
-	log.SetPrefix("watch: ")
+	log.SetPrefix("")
 	log.SetFlags(log.Lshortfile)
 }
 
 func main() {
 	flag.Parse()
-	if *isTest {
-		test()
+	if *isSync {
+		err := sync()
+		if err != nil {
+			log.Print(err)
+		}
 		return
 	}
-	if len(flag.Args()) != 1 {
-		flag.Usage()
+	if *isCheck {
+		err := check()
+		if err != nil {
+			fmt.Println(err)
+		}
 		return
 	}
 	if *isLongDesc {
@@ -68,6 +83,9 @@ func main() {
 		}
 		return
 	}
+	if len(flag.Args()) != 1 {
+		flag.Usage()
+	}
 	pack, err := latest(flag.Arg(0))
 	if err != nil {
 		log.Fatal(err)
@@ -75,23 +93,109 @@ func main() {
 	fmt.Println(pack.Latest)
 }
 
-func test() {
-	packages, err := filepath.Glob(*srcPath + "/*")
+func check() os.Error {
+	cache, err := loadCache()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%-20.20s %-20.20s %-20.20s\n", "name", "vanilla", "upstream")
+	for _, p := range *cache {
+		if p.Latest != p.Vanilla && p.Check {
+			fmt.Printf("%-20.20s %-20.20s %-20.20s\n", p.Name, p.Vanilla, p.Latest)
+		}
+	}
+	fmt.Printf("%-20.20s %-20.20s %-20.20s\n", "name", "vanilla", "upstream")
+	return nil
+}
+
+func sync() os.Error {
+	cache := map[string]*Package{}
+	templates, err := filepath.Glob(*srcPath + "/*/template")
 	if err != nil {
 		log.Fatal(err)
 	}
-	for i, dir := range packages {
-		if i >= 20 {
-			break
-		}
-		_, dir := filepath.Split(dir)
-		pack, err := latest(dir)
+	for i, template := range templates {
+		_, err := os.Stat(template)
 		if err != nil {
-			fmt.Printf("%04.0v %-20.20s %s\n", i, dir, "error")
+			return err
+		}
+		dir, _ := filepath.Split(template)
+		pname := filepath.Base(dir)
+		ver, err := getVar(template, "version")
+		if err != nil {
+			return err
+		}
+		pack, err := latest(pname)
+		if err != nil {
+			p := new(Package)
+			p.Name = pname
+			p.Check = false
+			p.Vanilla = ver
+			fmt.Printf("%04.0v %-20.20s %s\n", i, pname, "error")
+			cache[pname] = p
 			continue
 		}
-		fmt.Printf("%04.0v %-20.20s %-10.10s arch %s\n", i, dir, pack.Latest, pack.Distros[0].Version)
+		pack.Vanilla = ver
+		pack.Check = true
+		cache[pname] = pack
+		fmt.Printf("%04.0v %-20.20s %-10.10s\n", i, pname, pack.Latest)
 	}
+	f, err := os.Create(*srcPath + "/upstream.json")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	b, err := json.Marshal(cache)
+	if err != nil {
+		return err
+	}
+	buf := new(bytes.Buffer)
+	err = json.Indent(buf, b, "", "\t")
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(f, buf)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func loadCache() (*map[string]*Package, os.Error) {
+	cache := &map[string]*Package{}
+	fd, err := os.Open(*srcPath + "upstream.json")
+	if err != nil {
+		return nil, err
+	}
+	defer fd.Close()
+	err = json.NewDecoder(fd).Decode(cache)
+	if err != nil {
+		return nil, err
+	}
+	return cache, nil
+}
+
+func getVar(template string, shvar string) (string, os.Error) {
+	os.Setenv("XBPS_SRCPKGDIR", *srcPath)
+	fd, err := os.Open(template)
+	if err != nil {
+		return "", err
+	}
+	defer fd.Close()
+	buf := new(bytes.Buffer)
+	buf.WriteString("Add_dependency(){ :\n }\n")
+	io.Copy(buf, fd)
+	buf.WriteString("echo $" + shvar)
+	cmd := exec.Command("sh")
+	cmd.Stdin = buf
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		println(template)
+		log.Println(err, string(output))
+		return "", err
+	}
+	ver := strings.Replace(string(output), "\n", "", -1)
+	return ver, err
 }
 
 func longDesc(name string) os.Error {

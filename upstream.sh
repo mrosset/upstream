@@ -23,7 +23,7 @@ check_pkg()
 		continue
 	fi
 	. $SRCPKGDIR/$pkgname/template
-	watchver=$(./watch "$pkgname" 2>/dev/null)
+	watchver=$(./upstream "$pkgname" 2>/dev/null)
 	[ $? -ne 0 ] && continue
 	[ -z "$watchver" -o "$watchver" = "" -o "$watchver" = "rcs" ] && continue
 	echo "$pkgname: upstream version $watchver, srcpkgs $version."
