@@ -10,6 +10,7 @@ test: format all
 	./${TARG} -c
 	./${TARG} bash
 	./${TARG} git
+	./${TARG} -b
 
 format:
 	${GOFMT} .

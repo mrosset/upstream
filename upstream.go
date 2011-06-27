@@ -37,6 +37,7 @@ const (
 )
 
 var (
+	isBroken   = flag.Bool("b", false, "print out broken upstream versions")
 	isCheck    = flag.Bool("c", false, "check upstream version against our versions")
 	isSync     = flag.Bool("s", false, "cache oswatershed and srpkgs")
 	isLongDesc = flag.Bool("ld", false, "get long description from debian packages")
@@ -69,6 +70,13 @@ func main() {
 		}
 		return
 	}
+	if *isBroken {
+		err := broken()
+		if err != nil {
+			fmt.Println(err)
+		}
+		return
+	}
 	if *isCheck {
 		err := check()
 		if err != nil {
@@ -93,18 +101,32 @@ func main() {
 	fmt.Println(pack.Latest)
 }
 
+func broken() os.Error {
+	cache, err := loadCache()
+	if err != nil {
+		return err
+	}
+	for _, p := range *cache {
+		if !p.Check {
+			fmt.Printf("%v\n", p.Name)
+		}
+	}
+	return nil
+
+}
+
 func check() os.Error {
 	cache, err := loadCache()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%-20.20s %-20.20s %-20.20s\n", "name", "vanilla", "upstream")
+	fmt.Printf("%-20.20s %-20.20s %-20.20s %-20.20s\n", "name", "vanilla", "upstream", "archlinux")
 	for _, p := range *cache {
 		if p.Latest != p.Vanilla && p.Check {
-			fmt.Printf("%-20.20s %-20.20s %-20.20s\n", p.Name, p.Vanilla, p.Latest)
+			fmt.Printf("%-20.20s %-20.20s %-20.20s %-20.20s\n", p.Name, p.Vanilla, p.Latest, p.Distros[ARCHLINUX].Version)
 		}
 	}
-	fmt.Printf("%-20.20s %-20.20s %-20.20s\n", "name", "vanilla", "upstream")
+	fmt.Printf("%-20.20s %-20.20s %-20.20s %-20.20s\n", "name", "vanilla", "upstream", "archlinux")
 	return nil
 }
 
