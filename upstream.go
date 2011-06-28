@@ -39,7 +39,7 @@ const (
 var (
 	isBroken   = flag.Bool("b", false, "print out broken upstream versions")
 	isCheck    = flag.Bool("c", false, "check upstream version against our versions")
-	isSync     = flag.Bool("s", false, "cache oswatershed and srpkgs")
+	isSync     = flag.Bool("s", false, "sync oswatershed and srpkgs cache")
 	isLongDesc = flag.Bool("ld", false, "get long description from debian packages")
 	srcPath    = flag.String("path", "/home/strings/github/vanilla/srcpkgs/", "path to srcpkgs")
 )
