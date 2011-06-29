@@ -11,6 +11,7 @@ test: format all
 	./${TARG} bash
 	./${TARG} git
 	./${TARG} -b
+	./${TARG} -home ncdu
 
 format:
 	${GOFMT} .

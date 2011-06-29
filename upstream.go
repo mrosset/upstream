@@ -37,11 +37,13 @@ const (
 )
 
 var (
+	isHome     = flag.Bool("home", false, "open package homepage in browser")
 	isBroken   = flag.Bool("b", false, "print out broken upstream versions")
 	isCheck    = flag.Bool("c", false, "check upstream version against our versions")
 	isSync     = flag.Bool("s", false, "sync oswatershed and srpkgs cache")
 	isLongDesc = flag.Bool("ld", false, "get long description from debian packages")
 	srcPath    = flag.String("path", "/home/strings/github/vanilla/srcpkgs/", "path to srcpkgs")
+	browser    = flag.String("browser", "chromium", "broswer to use")
 )
 
 type Distro struct {
@@ -63,6 +65,14 @@ func init() {
 
 func main() {
 	flag.Parse()
+	if *isHome {
+		pack := flag.Arg(0)
+		err := home(pack)
+		if err != nil {
+			log.Print(err)
+		}
+		return
+	}
 	if *isSync {
 		err := sync()
 		if err != nil {
@@ -99,6 +109,20 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println(pack.Latest)
+}
+
+func home(pack string) os.Error {
+	template := filepath.Join(*srcPath, pack, "template")
+	home, err := getVar(template, "homepage")
+	if err != nil {
+		return err
+	}
+	fmt.Println("opening", home)
+	err = exec.Command(*browser, home).Run()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func broken() os.Error {
@@ -216,8 +240,11 @@ func getVar(template string, shvar string) (string, os.Error) {
 		log.Println(err, string(output))
 		return "", err
 	}
-	ver := strings.Replace(string(output), "\n", "", -1)
-	return ver, err
+	svar := strings.Replace(string(output), "\n", "", -1)
+	if svar == "" {
+		return "", fmt.Errorf("%s not found in %s", shvar, template)
+	}
+	return svar, err
 }
 
 func longDesc(name string) os.Error {
