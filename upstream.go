@@ -26,13 +26,14 @@ const (
 )
 
 var (
-	isHome     = flag.Bool("home", false, "open package homepage in browser")
-	isBroken   = flag.Bool("b", false, "print out broken upstream versions")
-	isCheck    = flag.Bool("c", false, "check upstream version against our versions")
-	isSync     = flag.Bool("s", false, "sync oswatershed and srpkgs cache")
-	isLongDesc = flag.Bool("ld", false, "get long description from debian packages")
-	srcPath    = flag.String("path", "/home/strings/github/vanilla/srcpkgs/", "path to srcpkgs")
-	browser    = flag.String("browser", "chromium", "broswer to use")
+	isCheckTemplate = flag.Bool("ct", false, "check templates *currently* only checks homepage, license")
+	isHome          = flag.Bool("home", false, "open package homepage in browser")
+	isBroken        = flag.Bool("b", false, "print out broken upstream versions")
+	isCheck         = flag.Bool("c", false, "check upstream version against our versions")
+	isSync          = flag.Bool("s", false, "sync oswatershed and srpkgs cache")
+	isLongDesc      = flag.Bool("ld", false, "get long description from debian packages")
+	srcPath         = flag.String("path", "/home/strings/github/vanilla/srcpkgs/", "path to srcpkgs")
+	browser         = flag.String("browser", "chromium", "broswer to use")
 )
 
 type Distro struct {
@@ -54,6 +55,13 @@ func init() {
 
 func main() {
 	flag.Parse()
+	if *isCheckTemplate {
+		err := checkTemplates()
+		if err != nil {
+			log.Print(err)
+		}
+		return
+	}
 	if *isHome {
 		pack := flag.Arg(0)
 		if pack == "" {
@@ -96,12 +104,37 @@ func main() {
 	}
 	if len(flag.Args()) != 1 {
 		flag.Usage()
+		return
 	}
 	pack, err := latest(flag.Arg(0))
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println(pack.Latest)
+}
+
+func checkTemplates() os.Error {
+	fail := false
+	templates, err := filepath.Glob(*srcPath + "/*/template")
+	if err != nil {
+		return err
+	}
+	for _, template := range templates {
+		pkgname, err := getVar(template, "pkgname")
+		if err != nil {
+			return err
+		}
+		if _, err = getVar(template, "homepage"); err != nil {
+			fail = true
+		}
+		if _, err = getVar(template, "license"); err != nil {
+			fail = true
+		}
+		if fail {
+			fmt.Println(pkgname)
+		}
+	}
+	return nil
 }
 
 func home(pack string) os.Error {
