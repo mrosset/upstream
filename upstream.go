@@ -15,17 +15,6 @@ import (
 	"strings"
 )
 
-var packages = []string{
-	"bash",
-	"grep",
-	"kernel",
-	"curl",
-	"libcurl",
-	"rtorrent",
-	"libX11",
-	"failthis",
-}
-
 const (
 	watershed = "http://api.oswatershed.org/api/0.1/package.json?package=%s&cb=go"
 	debian    = "http://packages.debian.org/%s/%s"
@@ -67,6 +56,10 @@ func main() {
 	flag.Parse()
 	if *isHome {
 		pack := flag.Arg(0)
+		if pack == "" {
+			flag.Usage()
+			return
+		}
 		err := home(pack)
 		if err != nil {
 			log.Print(err)
