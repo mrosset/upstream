@@ -114,20 +114,22 @@ func main() {
 }
 
 func checkTemplates() os.Error {
-	fail := false
 	templates, err := filepath.Glob(*srcPath + "/*/template")
 	if err != nil {
 		return err
 	}
 	for _, template := range templates {
+		fail := false
 		pkgname, err := getVar(template, "pkgname")
 		if err != nil {
 			return err
 		}
-		if _, err = getVar(template, "homepage"); err != nil {
+		_, err = getVar(template, "homepage")
+		if err != nil {
 			fail = true
 		}
-		if _, err = getVar(template, "license"); err != nil {
+		_, err = getVar(template, "license")
+		if err != nil {
 			fail = true
 		}
 		if fail {
@@ -268,7 +270,7 @@ func getVar(template string, shvar string) (string, os.Error) {
 	}
 	svar := strings.Replace(string(output), "\n", "", -1)
 	if svar == "" {
-		return "", fmt.Errorf("%s not found in %s", shvar, template)
+		return "error", fmt.Errorf("%s not found in %s", shvar, template)
 	}
 	return svar, err
 }
