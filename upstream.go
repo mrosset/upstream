@@ -119,7 +119,7 @@ func main() {
 
 func test() {
 	checkFatal(checkTemplates())
-	checkFatal(home("bash"))
+	checkFatal(home("gcalctool"))
 	//checkFatal(sync())
 	checkFatal(checkVersions())
 }
@@ -149,11 +149,15 @@ func home(pack string) os.Error {
 	if err != nil {
 		return err
 	}
+	if t.Homepage == "" {
+		return fmt.Errorf("%s has no homepage", pack)
+	}
 	fmt.Println("opening", t.Homepage)
 	err = exec.Command(*browser, t.Homepage).Run()
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
