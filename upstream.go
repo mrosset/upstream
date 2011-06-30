@@ -34,7 +34,7 @@ var (
 	isSync          = flag.Bool("s", false, "sync oswatershed and srpkgs cache")
 	isLongDesc      = flag.Bool("ld", false, "get long description from debian packages")
 	srcPath         = flag.String("path", "/home/strings/github/vanilla/srcpkgs/", "path to srcpkgs")
-	browser         = flag.String("browser", "chromium", "broswer to use")
+	browser         = flag.String("browser", "chromium", "browser to use")
 )
 
 type Distro struct {
