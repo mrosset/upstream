@@ -26,6 +26,7 @@ const (
 )
 
 var (
+	isTest          = flag.Bool("test", false, "run tests")
 	isCheckTemplate = flag.Bool("ct", false, "check templates *currently* only checks homepage, license")
 	isHome          = flag.Bool("home", false, "open package homepage in browser")
 	isBroken        = flag.Bool("b", false, "print out broken upstream versions")
@@ -55,6 +56,10 @@ func init() {
 
 func main() {
 	flag.Parse()
+	if *isTest {
+		test()
+		return
+	}
 	if *isCheckTemplate {
 		err := checkTemplates()
 		if err != nil {
@@ -111,6 +116,16 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println(pack.Latest)
+}
+
+func test() {
+	ts, err := GetTemplates(*srcPath)
+	if err != nil {
+		fmt.Println(err)
+	}
+	for _, t := range ts {
+		fmt.Println(t.Pkgname)
+	}
 }
 
 func checkTemplates() os.Error {

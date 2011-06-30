@@ -1,18 +1,13 @@
 include $(GOROOT)/src/Make.inc
 
 TARG=upstream
-GOFILES=upstream.go
+GOFILES=upstream.go template.go
 GOFMT=gofmt -l -w
 
 include $(GOROOT)/src/Make.cmd
 
 test: format all
-	#./${TARG} -c
-	#./${TARG} bash
-	#./${TARG} git
-	#./${TARG} -b
-	#./${TARG} -home ncdu
-	./${TARG} -ct
+	./${TARG} -test
 
 format:
 	${GOFMT} .
