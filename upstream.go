@@ -12,7 +12,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 const (
@@ -121,8 +120,8 @@ func main() {
 func test() {
 	checkFatal(checkTemplates())
 	checkFatal(home("bash"))
-	checkFatal(checkVersions())
 	//checkFatal(sync())
+	checkFatal(checkVersions())
 }
 
 func checkFatal(err os.Error) {
@@ -173,17 +172,27 @@ func broken() os.Error {
 }
 
 func checkVersions() os.Error {
+	maperror := 0
 	cache, err := loadCache()
+	if err != nil {
+		return err
+	}
+	ts, err := GetTemplates(*srcPath)
 	if err != nil {
 		return err
 	}
 	fmt.Printf("%-20.20s %-20.20s %-20.20s %-20.20s\n", "name", "vanilla", "upstream", "archlinux")
 	for _, p := range *cache {
-		if p.Latest != p.Vanilla && p.Check {
-			fmt.Printf("%-20.20s %-20.20s %-20.20s %-20.20s\n", p.Name, p.Vanilla, p.Latest, p.Distros[ARCHLINUX].Version)
+		if ts[p.Name] == nil {
+			maperror++
+			continue
+		}
+		if p.Latest != ts[p.Name].Version && p.Check {
+			fmt.Printf("%-20.20s %-20.20s %-20.20s %-20.20s\n", p.Name, ts[p.Name].Version, p.Latest, p.Distros[ARCHLINUX].Version)
 		}
 	}
 	fmt.Printf("%-20.20s %-20.20s %-20.20s %-20.20s\n", "name", "vanilla", "upstream", "archlinux")
+	fmt.Println(maperror, "map errors")
 	return nil
 }
 
@@ -199,12 +208,10 @@ func sync() os.Error {
 			p := new(Package)
 			p.Name = t.Pkgname
 			p.Check = false
-			p.Vanilla = t.Version
 			fmt.Printf("%04.0v %-20.20s %s\n", nrange, t.Pkgname, "error")
 			cache[t.Pkgname] = p
 			continue
 		}
-		pack.Vanilla = t.Version
 		pack.Check = true
 		cache[t.Pkgname] = pack
 		fmt.Printf("%04.0v %-20.20s %-10.10s\n", nrange, t.Pkgname, pack.Latest)
@@ -242,32 +249,6 @@ func loadCache() (*map[string]*Package, os.Error) {
 		return nil, err
 	}
 	return cache, nil
-}
-
-func getVar(template string, shvar string) (string, os.Error) {
-	os.Setenv("XBPS_SRCPKGDIR", *srcPath)
-	fd, err := os.Open(template)
-	if err != nil {
-		return "", err
-	}
-	defer fd.Close()
-	buf := new(bytes.Buffer)
-	buf.WriteString("Add_dependency(){ :\n }\n")
-	io.Copy(buf, fd)
-	buf.WriteString("echo $" + shvar)
-	cmd := exec.Command("sh")
-	cmd.Stdin = buf
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		println(template)
-		log.Println(err, string(output))
-		return "", err
-	}
-	svar := strings.Replace(string(output), "\n", "", -1)
-	if svar == "" {
-		return "error", fmt.Errorf("%s not found in %s", shvar, template)
-	}
-	return svar, err
 }
 
 func longDesc(name string) os.Error {
