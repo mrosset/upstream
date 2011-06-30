@@ -41,7 +41,7 @@ type Distro struct {
 }
 
 type Package struct {
-	Name    string "package"
+	Package string
 	Latest  string
 	Vanilla string
 	Distros []Distro
@@ -164,7 +164,7 @@ func broken() os.Error {
 	}
 	for _, p := range *cache {
 		if !p.Check {
-			fmt.Printf("%v\n", p.Name)
+			fmt.Printf("%v\n", p.Package)
 		}
 	}
 	return nil
@@ -183,12 +183,12 @@ func checkVersions() os.Error {
 	}
 	fmt.Printf("%-20.20s %-20.20s %-20.20s %-20.20s\n", "name", "vanilla", "upstream", "archlinux")
 	for _, p := range *cache {
-		if ts[p.Name] == nil {
+		if ts[p.Package] == nil {
 			maperror++
 			continue
 		}
-		if p.Latest != ts[p.Name].Version && p.Check {
-			fmt.Printf("%-20.20s %-20.20s %-20.20s %-20.20s\n", p.Name, ts[p.Name].Version, p.Latest, p.Distros[ARCHLINUX].Version)
+		if p.Latest != ts[p.Package].Version && p.Check {
+			fmt.Printf("%-20.20s %-20.20s %-20.20s %-20.20s\n", p.Package, ts[p.Package].Version, p.Latest, p.Distros[ARCHLINUX].Version)
 		}
 	}
 	fmt.Printf("%-20.20s %-20.20s %-20.20s %-20.20s\n", "name", "vanilla", "upstream", "archlinux")
@@ -206,10 +206,10 @@ func sync() os.Error {
 		pack, err := latest(t.Pkgname)
 		if err != nil {
 			p := new(Package)
-			p.Name = t.Pkgname
+			p.Package = t.Pkgname
 			p.Check = false
-			fmt.Printf("%04.0v %-20.20s %s\n", nrange, t.Pkgname, "error")
 			cache[t.Pkgname] = p
+			fmt.Printf("%04.0v %-20.20s %s\n", nrange, t.Pkgname, "error")
 			continue
 		}
 		pack.Check = true
