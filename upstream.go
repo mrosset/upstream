@@ -118,10 +118,10 @@ func main() {
 }
 
 func test() {
-	checkFatal(checkTemplates())
-	checkFatal(home("gcalctool"))
-	//checkFatal(sync())
-	checkFatal(checkVersions())
+	c, err := NewCrawler(*srcPath)
+	checkFatal(err)
+	err = c.Start()
+	checkFatal(err)
 }
 
 func checkFatal(err os.Error) {

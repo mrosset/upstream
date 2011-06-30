@@ -40,7 +40,13 @@ func NewTemplate(file string) (*Template, os.Error) {
 		return nil, err
 	}
 	defer fd.Close()
+	fs, err := os.Open("/usr/local/share/xbps-src/common/fetch_sites.sh")
+	if err != nil {
+		return nil, err
+	}
+	defer fs.Close()
 	buf := new(bytes.Buffer)
+	io.Copy(buf, fs)
 	buf.WriteString("Add_dependency(){ :\n }\n")
 	io.Copy(buf, fd)
 	buf.WriteString("echo {")
