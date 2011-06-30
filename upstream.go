@@ -94,7 +94,7 @@ func main() {
 		return
 	}
 	if *isCheck {
-		err := check()
+		err := checkVersions()
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -119,49 +119,39 @@ func main() {
 }
 
 func test() {
-	ts, err := GetTemplates(*srcPath)
+	checkFatal(checkTemplates())
+	checkFatal(home("bash"))
+	checkFatal(checkVersions())
+	//checkFatal(sync())
+}
+
+func checkFatal(err os.Error) {
 	if err != nil {
-		fmt.Println(err)
-	}
-	for _, t := range ts {
-		fmt.Println(t.Pkgname)
+		log.Fatal(err)
 	}
 }
 
 func checkTemplates() os.Error {
-	templates, err := filepath.Glob(*srcPath + "/*/template")
+	templates, err := GetTemplates(*srcPath)
 	if err != nil {
 		return err
 	}
-	for _, template := range templates {
-		fail := false
-		pkgname, err := getVar(template, "pkgname")
-		if err != nil {
-			return err
-		}
-		_, err = getVar(template, "homepage")
-		if err != nil {
-			fail = true
-		}
-		_, err = getVar(template, "license")
-		if err != nil {
-			fail = true
-		}
-		if fail {
-			fmt.Println(pkgname)
+	for _, t := range templates {
+		if t.License == "" || t.Homepage == "" {
+			fmt.Println(t.Pkgname)
 		}
 	}
 	return nil
 }
 
 func home(pack string) os.Error {
-	template := filepath.Join(*srcPath, pack, "template")
-	home, err := getVar(template, "homepage")
+	file := filepath.Join(*srcPath, pack, "template")
+	t, err := NewTemplate(file)
 	if err != nil {
 		return err
 	}
-	fmt.Println("opening", home)
-	err = exec.Command(*browser, home).Run()
+	fmt.Println("opening", t.Homepage)
+	err = exec.Command(*browser, t.Homepage).Run()
 	if err != nil {
 		return err
 	}
@@ -182,7 +172,7 @@ func broken() os.Error {
 
 }
 
-func check() os.Error {
+func checkVersions() os.Error {
 	cache, err := loadCache()
 	if err != nil {
 		return err
@@ -199,35 +189,25 @@ func check() os.Error {
 
 func sync() os.Error {
 	cache := map[string]*Package{}
-	templates, err := filepath.Glob(*srcPath + "/*/template")
-	if err != nil {
-		log.Fatal(err)
-	}
-	for i, template := range templates {
-		_, err := os.Stat(template)
-		if err != nil {
-			return err
-		}
-		dir, _ := filepath.Split(template)
-		pname := filepath.Base(dir)
-		ver, err := getVar(template, "version")
-		if err != nil {
-			return err
-		}
-		pack, err := latest(pname)
+	templates, err := GetTemplates(*srcPath)
+	checkFatal(err)
+	nrange := 0
+	for _, t := range templates {
+		nrange++
+		pack, err := latest(t.Pkgname)
 		if err != nil {
 			p := new(Package)
-			p.Name = pname
+			p.Name = t.Pkgname
 			p.Check = false
-			p.Vanilla = ver
-			fmt.Printf("%04.0v %-20.20s %s\n", i, pname, "error")
-			cache[pname] = p
+			p.Vanilla = t.Version
+			fmt.Printf("%04.0v %-20.20s %s\n", nrange, t.Pkgname, "error")
+			cache[t.Pkgname] = p
 			continue
 		}
-		pack.Vanilla = ver
+		pack.Vanilla = t.Version
 		pack.Check = true
-		cache[pname] = pack
-		fmt.Printf("%04.0v %-20.20s %-10.10s\n", i, pname, pack.Latest)
+		cache[t.Pkgname] = pack
+		fmt.Printf("%04.0v %-20.20s %-10.10s\n", nrange, t.Pkgname, pack.Latest)
 	}
 	f, err := os.Create(*srcPath + "/upstream.json")
 	if err != nil {

@@ -92,6 +92,7 @@ func GetTemplates(srcpkgs string) (map[string]*Template, os.Error) {
 		t, err := NewTemplate(file)
 		if err != nil {
 			errors++
+			continue
 		}
 		ok++
 		if t != nil {
