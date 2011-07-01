@@ -49,12 +49,19 @@ type Package struct {
 }
 
 func init() {
-	log.SetPrefix("")
-	log.SetFlags(log.Lshortfile)
+	log.SetPrefix("upstream: ")
+	log.SetFlags(0)
 }
 
 func main() {
 	flag.Parse()
+	lfile, err := os.Create("upstream.log")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer lfile.Close()
+	log.SetOutput(lfile)
+
 	if *isTest {
 		test()
 		return
@@ -120,8 +127,8 @@ func main() {
 func test() {
 	c, err := NewCrawler(*srcPath)
 	checkFatal(err)
-	err = c.Start()
-	checkFatal(err)
+	//c.Crawl("xineramaproto")
+	c.Start()
 }
 
 func checkFatal(err os.Error) {

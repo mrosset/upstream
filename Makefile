@@ -7,7 +7,7 @@ GOFMT=gofmt -l -w
 include $(GOROOT)/src/Make.cmd
 
 test: format all
-	./${TARG} -test | tee upstream.log
+	xtime ./${TARG} -test
 
 format:
 	${GOFMT} .
