@@ -49,13 +49,12 @@ type Package struct {
 }
 
 func init() {
-	log.SetPrefix("upstream: ")
 	log.SetFlags(0)
 }
 
 func main() {
 	flag.Parse()
-	lfile, err := os.Create("upstream.log")
+	lfile, err := os.Create("upstream_error.log")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -125,10 +124,16 @@ func main() {
 }
 
 func test() {
+	ps := []string{
+		"bash",
+		"wget",
+		"chromium",
+		"tar",
+	}
 	c, err := NewCrawler(*srcPath)
 	checkFatal(err)
-	//c.Crawl("xineramaproto")
 	c.Start()
+	fmt.Println(ps)
 }
 
 func checkFatal(err os.Error) {

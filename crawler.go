@@ -12,13 +12,10 @@ import (
 	"strconv"
 	"strings"
 	timer "github.com/str1ngs/gotimer"
-	"runtime"
-	"time"
 )
 
 var (
 	client = new(http.Client)
-	done   = 0
 )
 
 type Crawler struct {
@@ -36,38 +33,15 @@ func NewCrawler(srcpath string) (*Crawler, os.Error) {
 func (c *Crawler) Start() os.Error {
 	log.Println("staring", "crawl")
 	defer timer.From(timer.Now())
-	tick := time.Tick(1e09 / 2)
-	maxjobs := int32(100)
+	var (
+		done = 0
+	)
 	for _, t := range c.templates {
 		if t.Distfiles == "" {
 			continue
 		}
-		jobs := runtime.Goroutines()
-		if jobs >= maxjobs {
-		wait:
-			for {
-				select {
-				case <-tick:
-					if runtime.Goroutines() < maxjobs {
-						break wait
-					}
-				default:
-					runtime.Gosched()
-				}
-			}
-		}
-		go c.crawl(t)
+		c.crawl(t)
 		done++
-		fmt.Printf("\rjobs %3.3v done %v", runtime.Goroutines(), done)
-
-	}
-	for {
-		if runtime.Goroutines() == 0 {
-			break
-		}
-		fmt.Printf("\rjobs %3.3v done %v", runtime.Goroutines(), done)
-		runtime.Gosched()
-		<-tick
 	}
 	return nil
 }
@@ -101,7 +75,7 @@ func (c *Crawler) crawl(t *Template) {
 	}
 	// sourceforge sucks, make it suckless
 	if url.Host == "downloads.sourceforge.net" {
-		rawurl = fmt.Sprintf("http://sourceforge.net/projects/%s/files/", t.Pkgname)
+		rawurl = fmt.Sprintf("http://www.sourceforge.net/projects/%s/files/", t.Pkgname)
 	}
 	res, err := client.Get(rawurl)
 	if err != nil {
@@ -123,20 +97,67 @@ func (c *Crawler) crawl(t *Template) {
 	fext := filepath.Ext(file)
 	reg := regexp.MustCompile(fmt.Sprintf(regex, t.Pkgname, fext[1:]))
 	results := reg.FindAllString(string(rbuf.Bytes()), -1)
-	for _, r := range results {
-		log.Println(t.Pkgname, r)
+	if len(results) == 0 {
+		log.Println(t.Pkgname, "no distfiles found on", rawurl)
+		return
+	}
+	vregx := regxFromFile(file)
+	latest := findLatest(results, vregx)
+	if latest.Int > verInt(t.Version) {
+		newlog, err := os.OpenFile("upstream_new.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
+		if err != nil {
+			log.Println(t.Pkgname, err)
+		}
+		defer newlog.Close()
+		mw := io.MultiWriter(os.Stderr, newlog)
+		fmt.Fprintf(mw, "%-20.20s upstream %10.10s vanilla %10.10s %s\n", t.Pkgname, latest.String, t.Version, rawurl)
 	}
 }
 
-func fileToRegx(file string) string {
-	rbuf := new(bytes.Buffer)
-	for _, c := range file {
-		_, err := strconv.Atoi(string(c))
-		if err == nil {
-			rbuf.WriteString("[0-9]")
-			continue
+type Latest struct {
+	Int    int
+	String string
+}
+
+func findLatest(files []string, vregx string) *Latest {
+	var (
+		latest = &Latest{}
+	)
+	for _, file := range files {
+		if vregx == regxFromFile(file) {
+			sv := regexp.MustCompile(vregx).FindString(file)
+			if verInt(sv) > latest.Int {
+				latest.Int = verInt(sv)
+				latest.String = sv
+			}
 		}
-		rbuf.WriteString(string(c))
 	}
-	return string(rbuf.Bytes())
+	return latest
+}
+
+func verInt(ver string) int {
+	ver = strings.Replace(ver, ".", "", -1)
+	i, err := strconv.Atoi(ver)
+	if err != nil {
+		return 0
+	}
+	return i
+}
+
+func regxFromFile(file string) string {
+	var (
+		quad   = `[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+`
+		truple = `[0-9]+\.[0-9]+\.[0-9]+`
+		double = `[0-9]+\.[0-9]+`
+	)
+	if ok, _ := regexp.MatchString(quad, file); ok {
+		return quad
+	}
+	if ok, _ := regexp.MatchString(truple, file); ok {
+		return truple
+	}
+	if ok, _ := regexp.MatchString(double, file); ok {
+		return double
+	}
+	return ""
 }
