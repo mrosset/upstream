@@ -59,7 +59,8 @@ func main() {
 		log.Fatal(err)
 	}
 	defer lfile.Close()
-	log.SetOutput(lfile)
+	mw := io.MultiWriter(os.Stderr, lfile)
+	log.SetOutput(mw)
 
 	if *isTest {
 		test()
@@ -125,15 +126,17 @@ func main() {
 
 func test() {
 	ps := []string{
-		"bash",
-		"wget",
-		"chromium",
-		"tar",
+		"xstow",
 	}
+	_ = ps
 	c, err := NewCrawler(*srcPath)
 	checkFatal(err)
+	/*
+		for _, p := range ps {
+			c.Crawl(p)
+		}
+	*/
 	c.Start()
-	fmt.Println(ps)
 }
 
 func checkFatal(err os.Error) {
