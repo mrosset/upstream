@@ -75,7 +75,6 @@ func NewTemplate(file string) (*Template, os.Error) {
 
 func GetTemplates(srcpkgs string) (map[string]*Template, os.Error) {
 	var (
-		errors    = 0
 		linked    = 0
 		ok        = 0
 		templates = map[string]*Template{}
@@ -97,7 +96,7 @@ func GetTemplates(srcpkgs string) (map[string]*Template, os.Error) {
 		}
 		t, err := NewTemplate(file)
 		if err != nil {
-			errors++
+			fmt.Println(err)
 			continue
 		}
 		ok++

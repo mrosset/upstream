@@ -25,6 +25,7 @@ const (
 )
 
 var (
+	isPrint         = flag.Bool("print", false, "print template")
 	isTest          = flag.Bool("test", false, "run tests")
 	isCheckTemplate = flag.Bool("ct", false, "check templates *currently* only checks homepage, license")
 	isHome          = flag.Bool("home", false, "open package homepage in browser")
@@ -59,9 +60,17 @@ func main() {
 		log.Fatal(err)
 	}
 	defer lfile.Close()
-	mw := io.MultiWriter(os.Stderr, lfile)
-	log.SetOutput(mw)
+	log.SetOutput(lfile)
 
+	if *isPrint {
+		t, err := GetTemplates(*srcPath)
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		fmt.Println(t[flag.Arg(0)])
+		return
+	}
 	if *isTest {
 		test()
 		return
@@ -130,7 +139,10 @@ func test() {
 	}
 	_ = ps
 	c, err := NewCrawler(*srcPath)
-	checkFatal(err)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(0)
+	}
 	/*
 		for _, p := range ps {
 			c.Crawl(p)

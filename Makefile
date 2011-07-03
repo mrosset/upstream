@@ -7,7 +7,7 @@ GOFMT=gofmt -l -w
 include $(GOROOT)/src/Make.cmd
 
 test: format all
-	xtime ./${TARG} -test
+	./${TARG} -test vim
 
 format:
 	${GOFMT} .

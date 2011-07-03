@@ -35,6 +35,9 @@ func NewCrawler(srcpath string) (*Crawler, os.Error) {
 	if err != nil {
 		return nil, err
 	}
+	if len(ts) == 0 {
+		return nil, fmt.Errorf("Expected greater then 0 templates go %v", len(ts))
+	}
 	return &Crawler{ts}, nil
 }
 
@@ -43,6 +46,7 @@ func (c *Crawler) Start() os.Error {
 	var (
 		done = 0
 	)
+
 	for _, t := range c.templates {
 		if t.Distfiles == "" {
 			continue
@@ -121,6 +125,9 @@ func (c *Crawler) crawl(t *Template) {
 		}
 		defer newlog.Close()
 		mw := io.MultiWriter(os.Stderr, newlog)
+		if err != nil {
+			log.Println(t.Pkgname, err)
+		}
 		fmt.Fprintf(mw, "%-20.20s upstream %10.10s vanilla %10.10s %s\n", t.Pkgname, latest.String, t.Version, rawurl)
 	}
 }
