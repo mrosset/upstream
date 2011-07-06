@@ -92,7 +92,7 @@ func GetTemplates(spath string) (map[string]*Template, os.Error) {
 		ok        = 0
 		templates = map[string]*Template{}
 	)
-	files, err := filepath.Glob(spath+ "/*/template")
+	files, err := filepath.Glob(spath + "/*/template")
 	if err != nil {
 		return nil, err
 	}

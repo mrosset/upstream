@@ -2,6 +2,7 @@ package xbps
 
 import (
 	"os"
+	"strings"
 )
 
 func fileExists(path string) bool {
@@ -13,4 +14,12 @@ func fileExists(path string) bool {
 		return true
 	}
 	return false
+}
+
+func unExpand(path string) string {
+	home := os.Getenv("HOME")
+	if strings.Contains(path, home) {
+		return strings.Replace(path, home, "~", 1)
+	}
+	return path
 }

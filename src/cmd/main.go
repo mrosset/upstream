@@ -18,7 +18,7 @@ func main() {
 	case 1:
 		target = flag.Arg(0)
 	}
-	md, err := xbps.NewMasterDir("masterdir")
+	md, err := xbps.NewMasterDir("masterdir", "/home/strings/masters/")
 	if err != nil {
 		log.Fatal(err)
 	}

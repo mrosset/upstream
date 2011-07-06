@@ -8,27 +8,30 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
 var (
 	xbpsBin  = "xbps-bin.static -c %s -Ayr %s %s %s"
 	xbpsSrc  = "xbps-src -C -m %s %s %s"
+	mkIdx    = "xbps-repo genindex %s"
 	binCache = "/home/strings/bincache"
-	debug    = false
+	srcPath  = "/home/strings/github/vanilla/srcpkgs/"
+	lfmt     = "%-10.10s %s"
+	pkgfmt   = "%s-%s.x86_64.xbps"
 	bufout   = new(bytes.Buffer)
 )
 
-
 func HandleError(err os.Error) {
 	log.Print(err)
-	log.Print("*****************************************************************")
+	log.Print(strings.Repeat("*", 80-len(log.Prefix())))
 	io.Copy(os.Stderr, bufout)
-	log.Print("*****************************************************************")
+	log.Print(strings.Repeat("*", 80-len(log.Prefix())))
 }
 
 func Seed(md *MasterDir) (err os.Error) {
-	err = Install("base-chroot>=0.11", md)
+	err = Install("base-chroot", md)
 	if err != nil {
 		md.UnMount()
 		return err
@@ -38,10 +41,10 @@ func Seed(md *MasterDir) (err os.Error) {
 
 func Install(pack string, md *MasterDir) (err os.Error) {
 	if IsInstalled(pack, md) {
-		log.Printf("%-10.10s %s", "skip", pack)
+		log.Printf(lfmt, "skip", pack)
 		return
 	}
-	log.Printf("%-10.10s %s", "install", pack)
+	log.Printf(lfmt, "install", pack)
 	err = NewCommand(xbpsBin, binCache, md.TargetPath, "install", pack).Run()
 	if err != nil {
 		return
@@ -49,18 +52,47 @@ func Install(pack string, md *MasterDir) (err os.Error) {
 	return
 }
 
+func RmPackFile(pkg string) (err os.Error) {
+	tmpl, err := FindTemplate(pkg, srcPath)
+	if err != nil {
+		return err
+	}
+	pkgname := fmt.Sprintf(pkgfmt, pkg, tmpl.Version)
+	glob := fmt.Sprintf("%s/pkg-binpkgs/*/%s-*", hostPath, pkgname)
+	files, err := filepath.Glob(glob)
+	if err != nil {
+		return
+	}
+	switch len(files) {
+	case 0:
+		log.Printf(lfmt, "no package", pkg)
+		return
+	case 1:
+		log.Printf(lfmt, "remove", unExpand(files[0]))
+		err = os.Remove(files[0])
+		return err
+	default:
+		for _, f := range files {
+			log.Printf(lfmt, "packages", unExpand(f))
+		}
+		return fmt.Errorf("expected one package to remove found %v", len(files))
+	}
+	panic("Should net reach here")
+}
+
 func Build(tmpl string, md *MasterDir) (err os.Error) {
 	depends, err := GetDepends(tmpl)
 	if err != nil {
 		return err
 	}
+	log.Printf(lfmt, "depends", tmpl)
 	for _, d := range depends {
 		err = Install(d, md)
 		if err != nil {
 			return err
 		}
 	}
-	log.Printf("%-10.10s %s", "build", tmpl)
+	log.Printf(lfmt, "build", tmpl)
 	cmd := NewCommand(xbpsSrc, md.TargetPath, "install", tmpl)
 	err = cmd.Run()
 	if err != nil {
@@ -70,34 +102,32 @@ func Build(tmpl string, md *MasterDir) (err os.Error) {
 }
 
 func Package(tmpl string, md *MasterDir) (err os.Error) {
-	log.Printf("%-10.10s %s", "package", tmpl)
+	if err = RmPackFile(tmpl); err != nil {
+		return
+	}
+	log.Printf(lfmt, "package", tmpl)
 	err = NewCommand(xbpsSrc, md.TargetPath, "build-pkg", tmpl).Run()
 	if err != nil {
 		return
 	}
 
-	log.Printf("%-10.10s %s", "index", tmpl)
-	err = NewCommand(xbpsSrc, md.TargetPath, "make-repoidx", tmpl).Run()
+	log.Printf(lfmt, "index", tmpl)
+	err = NewCommand(mkIdx, md.TargetPath+"/pkg-binpkgs/").Run()
 	if err != nil {
 		return
 	}
+	log.Printf(lfmt, "done", tmpl)
+	return
+}
 
-	log.Printf("%-10.10s %s", "remove", tmpl)
-	err = NewCommand(xbpsSrc, md.TargetPath, "remove", tmpl).Run()
-	if err != nil {
+func Clean(md *MasterDir) (err os.Error) {
+	if err = md.UnMount(); err != nil {
 		return
 	}
-
-	if err := md.UnMount(); err != nil {
-		return err
+	log.Printf(lfmt, "clean", md.TargetPath)
+	if err = os.RemoveAll(md.TargetPath); err != nil {
+		return
 	}
-
-	log.Printf("%-10.10s %s", "removing", md.TargetPath)
-	err = os.RemoveAll(md.TargetPath)
-	if err != nil {
-		return err
-	}
-	log.Printf("%-10.10s %s", "done", tmpl)
 	return
 }
 
