@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"xbps"
 )
 
 const (
@@ -63,7 +64,7 @@ func main() {
 	log.SetOutput(lfile)
 
 	if *isPrint {
-		t, err := GetTemplates(*srcPath)
+		t, err := xbps.GetTemplates(*srcPath)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
@@ -158,7 +159,7 @@ func checkFatal(err os.Error) {
 }
 
 func checkTemplates() os.Error {
-	templates, err := GetTemplates(*srcPath)
+	templates, err := xbps.GetTemplates(*srcPath)
 	if err != nil {
 		return err
 	}
@@ -172,7 +173,7 @@ func checkTemplates() os.Error {
 
 func home(pack string) os.Error {
 	file := filepath.Join(*srcPath, pack, "template")
-	t, err := NewTemplate(file)
+	t, err := xbps.NewTemplate(file)
 	if err != nil {
 		return err
 	}
@@ -208,7 +209,7 @@ func checkVersions() os.Error {
 	if err != nil {
 		return err
 	}
-	ts, err := GetTemplates(*srcPath)
+	ts, err := xbps.GetTemplates(*srcPath)
 	if err != nil {
 		return err
 	}
@@ -229,7 +230,7 @@ func checkVersions() os.Error {
 
 func sync() os.Error {
 	cache := map[string]*Package{}
-	templates, err := GetTemplates(*srcPath)
+	templates, err := xbps.GetTemplates(*srcPath)
 	checkFatal(err)
 	nrange := 0
 	for _, t := range templates {

@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"xbps"
 )
 
 var (
@@ -27,11 +28,11 @@ type Forge struct {
 }
 
 type Crawler struct {
-	templates map[string]*Template
+	templates map[string]*xbps.Template
 }
 
 func NewCrawler(srcpath string) (*Crawler, os.Error) {
-	ts, err := GetTemplates(srcpath)
+	ts, err := xbps.GetTemplates(srcpath)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +62,7 @@ func (c *Crawler) Crawl(key string) {
 	c.crawl(c.templates[key])
 }
 
-func getParentUrl(t *Template) (string, string) {
+func getParentUrl(t *xbps.Template) (string, string) {
 	t.Distfiles = strings.Trim(t.Distfiles, " ")
 	distfiles := strings.Split(t.Distfiles, " ")
 	url, file := filepath.Split(distfiles[0])
@@ -71,7 +72,7 @@ func getParentUrl(t *Template) (string, string) {
 	return url, file
 }
 
-func (c *Crawler) crawl(t *Template) {
+func (c *Crawler) crawl(t *xbps.Template) {
 	defer func() {
 		err := recover()
 		if err != nil {
