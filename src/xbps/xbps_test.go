@@ -1,6 +1,9 @@
 package xbps
 
 import (
+	"bytes"
+	"io"
+	"os"
 	"testing"
 )
 
@@ -8,12 +11,26 @@ var (
 	packs  = []string{"ncdu"}
 	master *MasterDir
 	spath  = "/home/strings/github/vanilla/srcpkgs"
+	dprint = false
 )
 
-func TestShAll(t *testing.T) {
-	_, err := GetTemplates(spath)
+func TestSerializeAll(t *testing.T) {
+	tmpls, err := GetTemplates(spath)
 	if err != nil {
 		t.Fatal(err)
+	}
+	buf := new(bytes.Buffer)
+	for _, tmpl := range tmpls {
+		r := tmpl.ToSH()
+		io.Copy(buf, r)
+		r, err = tmpl.ToJson()
+		if err != nil {
+			t.Error(err)
+		}
+		io.Copy(buf, r)
+		if dprint {
+			io.Copy(os.Stderr, buf)
+		}
 	}
 }
 

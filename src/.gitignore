@@ -17,3 +17,4 @@ _obj
 _test
 _testmain.go
 vbuild/vbuild
+shhelper/shhelper

@@ -1,5 +1,5 @@
 GOFMT=gofmt -l -w
-DIRS=xbps vbuild
+DIRS=xbps vbuild shhelper
 
 clean.dirs: $(addsuffix .clean, $(DIRS))
 install.dirs: $(addsuffix .install, $(DIRS))
@@ -10,7 +10,8 @@ clean: $(patsubst %,%.clean,$(CLEANDIRS))
 
 %.test:
 	+@echo test $*
-	+@$(MAKE) -C $* test.clean >$*/test.out 2>&1 || (echo TEST FAIL $*; cat $*/test.out; exit 1)
+	+@$(MAKE) -C $* install
+	+@$(MAKE) -C $* test
 
 
 echo-dirs:
@@ -28,11 +29,11 @@ echo-dirs:
 	@echo
 	$(MAKE) -C $* clean
 
-clean: clean.dirs
+clean: 		clean.dirs
 
-install: install.dirs
+install: 	install.dirs
 
-test:	test.dirs
+test: 		test.dirs
 
 format:
 	${GOFMT} .
