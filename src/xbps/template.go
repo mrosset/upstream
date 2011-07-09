@@ -1,6 +1,5 @@
 package xbps
 
-
 import (
 	"bytes"
 	"exec"
@@ -13,32 +12,18 @@ import (
 )
 
 
-var shVars = []string{
-	"pkgname",
-	"version",
-	"distfiles",
-	"short_desc",
-	"maintainer",
-	"homepage",
-	"license",
-	"checksum",
-	"long_desc",
-	"build_style",
-}
-
-
 type Template struct {
-	Pkgname    string "pkgname"
-	Version    string "version"
-	Distfiles  string "distfiles"
-	ShortDesc  string `json:"short_desc"`
-	Maintainer string "maintainer"
-	Homepage   string "homepage"
-	License    string "license"
-	Checksum   string "checksum"
-	Path       string
-	LongDesc   string `json:"long_desc"`
-	BuildStyle string `json:"build_style"`
+	Pkgname     string "pkgname"
+	Version     string "version"
+	Distfiles   string "distfiles"
+	Short_Desc  string "short_desc"
+	Maintainer  string "maintainer"
+	Homepage    string "homepage"
+	License     string "license"
+	Checksum    string "checksum"
+	Path        string
+	Long_Desc   string "long_desc"
+	Build_Style string "build_style"
 }
 
 
@@ -50,11 +35,8 @@ func (this Template) ToSH() io.Reader {
 	for i := 0; i < nfield; i++ {
 		field := t.Field(i)
 		value := tmpl.Field(i)
-		if field.Tag != "" && field.Tag.Get("json") == "" {
+		if field.Tag != "" {
 			fmt.Fprintf(buf, `%s="%s"%s`, field.Tag, value.String(), "\n")
-		}
-		if field.Tag.Get("json") != "" {
-			fmt.Fprintf(buf, `%s="%s"%s`, field.Tag.Get("json"), value.String(), "\n")
 		}
 	}
 	return buf
@@ -83,7 +65,6 @@ func FindTemplate(pkg, spath string) (tmpl *Template, err os.Error) {
 	return
 }
 
-
 func NewTemplate(file string) (*Template, os.Error) {
 	fd, err := os.Open(file)
 	if err != nil {
@@ -99,14 +80,24 @@ func NewTemplate(file string) (*Template, os.Error) {
 	io.Copy(buf, fs)
 	buf.WriteString("Add_dependency(){ :\n }\n")
 	io.Copy(buf, fd)
+
+	template := new(Template)
+	tmpl := reflect.ValueOf(*template)
+	nfield := tmpl.NumField()
+	t := tmpl.Type()
 	buf.WriteString(`echo \{`)
-	for i, v := range shVars {
-		line := fmt.Sprintf(`\"%s\":\"$%s\",`, v, v)
-		if i == len(shVars)-1 {
+	for i := 0; i <= nfield; i++ {
+		field := t.Field(i)
+		if field.Tag == "" {
+			continue
+		}
+		line := fmt.Sprintf(`\"%s\":\"$%s\",`, field.Tag, field.Tag)
+		if i == nfield-1 {
 			line = line[0 : len(line)-1]
 		}
 		buf.WriteString(line)
 	}
+
 	buf.WriteString(`\}`)
 	cmd := exec.Command("sh")
 	cmd.Stdin = buf
@@ -114,7 +105,6 @@ func NewTemplate(file string) (*Template, os.Error) {
 	if err != nil {
 		return nil, err
 	}
-	template := new(Template)
 	err = json.Unmarshal(output, template)
 	if err != nil {
 		return nil, err
@@ -122,47 +112,6 @@ func NewTemplate(file string) (*Template, os.Error) {
 	template.Path = file
 	return template, nil
 }
-
-
-func NewTemplate(file string) (*Template, os.Error) {
-	fd, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer fd.Close()
-	fs, err := os.Open("/usr/local/share/xbps-src/common/fetch_sites.sh")
-	if err != nil {
-		return nil, err
-	}
-	defer fs.Close()
-	buf := new(bytes.Buffer)
-	io.Copy(buf, fs)
-	buf.WriteString("Add_dependency(){ :\n }\n")
-	io.Copy(buf, fd)
-	buf.WriteString(`echo \{`)
-	for i, v := range shVars {
-		line := fmt.Sprintf(`\"%s\":\"$%s\",`, v, v)
-		if i == len(shVars)-1 {
-			line = line[0 : len(line)-1]
-		}
-		buf.WriteString(line)
-	}
-	buf.WriteString(`\}`)
-	cmd := exec.Command("sh")
-	cmd.Stdin = buf
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, err
-	}
-	template := new(Template)
-	err = json.Unmarshal(output, template)
-	if err != nil {
-		return nil, err
-	}
-	template.Path = file
-	return template, nil
-}
-
 
 func GetTemplates(spath string) (map[string]*Template, os.Error) {
 	os.Setenv("XBPS_SRCPKGDIR", spath)
@@ -188,8 +137,8 @@ func GetTemplates(spath string) (map[string]*Template, os.Error) {
 		}
 		t, err := NewTemplate(file)
 		if err != nil {
-			fmt.Println(err)
 			continue
+			return nil, err
 		}
 		ok++
 		if t != nil {
