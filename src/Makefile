@@ -12,5 +12,7 @@ install:
 	make -C ./pkg install
 	make -C ./cmd install
 
+test:
+	make -C ./pkg test -- -v
 format:
 	${GOFMT} .

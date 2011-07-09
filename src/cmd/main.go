@@ -26,17 +26,12 @@ func main() {
 		xbps.HandleError(err)
 		os.Exit(1)
 	}
-	if err = md.Mount(); err != nil {
-		log.Fatal(err)
-	}
 	if err = xbps.Build(target, md); err != nil {
 		xbps.HandleError(err)
-		md.UnMount()
 		os.Exit(1)
 	}
 	if err = xbps.Package(target, md); err != nil {
 		xbps.HandleError(err)
-		md.UnMount()
 	}
 	return
 }

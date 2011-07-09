@@ -8,6 +8,7 @@ import (
 	"json"
 	"os"
 	"path/filepath"
+	"reflect"
 )
 
 var shVars = []string{
@@ -21,16 +22,37 @@ var shVars = []string{
 }
 
 type Template struct {
-	Pkgname    string
-	Version    string
-	Distfiles  string
+	Pkgname    string "pkgname"
+	Version    string "version"
+	Distfiles  string "distfiles"
 	ShortDesc  string "short_desc"
-	Maintainer string
-	Homepage   string
-	License    string
-	Checksum   string
-	LongDesc   *json.RawMessage "long_desc"
+	Maintainer string "maintainer"
+	Homepage   string "homepage"
+	License    string "license"
+	Checksum   string "checksum"
 	Path       string
+	//LongDesc   *json.RawMessage "long_desc"
+}
+
+func (this Template) ToSh() []byte {
+	buf := new(bytes.Buffer)
+	tmpl := reflect.ValueOf(this)
+	nfield := tmpl.NumField()
+	t := tmpl.Type()
+	for i := 0; i < nfield; i++ {
+		field := t.Field(i)
+		value := tmpl.Field(i)
+		if field.Tag != "" {
+			fmt.Fprintf(buf, `%s="%s"%s`, field.Tag, value.String(), "\n")
+		}
+	}
+	return buf.Bytes()
+}
+
+func (this Template) ToJson() (b []byte, err os.Error) {
+	buf := new(bytes.Buffer)
+	err = json.NewEncoder(buf).Encode(this)
+	return buf.Bytes(), err
 }
 
 func FindTemplate(pkg, spath string) (tmpl *Template, err os.Error) {

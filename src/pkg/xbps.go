@@ -15,7 +15,7 @@ import (
 var (
 	xbpsBin  = "xbps-bin.static -c %s -Ayr %s %s %s"
 	xbpsSrc  = "xbps-src -C -m %s %s %s"
-	mkIdx    = "xbps-repo genindex %s"
+	mkIdx    = "xbps-src make-repoidx %s"
 	binCache = "/home/strings/bincache"
 	srcPath  = "/home/strings/github/vanilla/srcpkgs/"
 	lfmt     = "%-10.10s %s"
@@ -33,7 +33,6 @@ func HandleError(err os.Error) {
 func Seed(md *MasterDir) (err os.Error) {
 	err = Install("base-chroot", md)
 	if err != nil {
-		md.UnMount()
 		return err
 	}
 	return
@@ -112,7 +111,11 @@ func Package(tmpl string, md *MasterDir) (err os.Error) {
 	}
 
 	log.Printf(lfmt, "index", tmpl)
-	err = NewCommand(mkIdx, md.TargetPath+"/pkg-binpkgs/").Run()
+	err = NewCommand(mkIdx, tmpl).Run()
+	if err != nil {
+		return
+	}
+	err = Clean(md)
 	if err != nil {
 		return
 	}
@@ -121,9 +124,6 @@ func Package(tmpl string, md *MasterDir) (err os.Error) {
 }
 
 func Clean(md *MasterDir) (err os.Error) {
-	if err = md.UnMount(); err != nil {
-		return
-	}
 	log.Printf(lfmt, "clean", md.TargetPath)
 	if err = os.RemoveAll(md.TargetPath); err != nil {
 		return
