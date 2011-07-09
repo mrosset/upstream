@@ -1,5 +1,5 @@
 GOFMT=gofmt -l -w
-DIRS=xbps vbuild shhelper
+DIRS=xbps upstream vbuild shhelper
 
 clean.dirs: $(addsuffix .clean, $(DIRS))
 install.dirs: $(addsuffix .install, $(DIRS))
