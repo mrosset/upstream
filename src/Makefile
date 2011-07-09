@@ -1,18 +1,38 @@
 GOFMT=gofmt -l -w
+DIRS=xbps vbuild
 
-all:
-	make -C ./cmd
-	make -C ./pkg
+clean.dirs: $(addsuffix .clean, $(DIRS))
+install.dirs: $(addsuffix .install, $(DIRS))
+test.dirs: $(addsuffix .test, $(DIRS))
 
-clean:
-	make -C ./cmd clean
-	make -C ./pkg clean
+install: $(patsubst %,%.install,$(DIRS))
+clean: $(patsubst %,%.clean,$(CLEANDIRS))
 
-install:
-	make -C ./pkg install
-	make -C ./cmd install
+%.test:
+	+@echo test $*
+	+@$(MAKE) -C $* test.clean >$*/test.out 2>&1 || (echo TEST FAIL $*; cat $*/test.out; exit 1)
 
-test:
-	make -C ./pkg test -- -v
+
+echo-dirs:
+	@echo $(DIRS)
+
+%.install: %.clean
+	@echo
+	@echo %%%% making $* %%%%
+	@echo
+	$(MAKE) -C $* install
+
+%.clean:
+	@echo
+	@echo %%%% cleaning $* %%%%
+	@echo
+	$(MAKE) -C $* clean
+
+clean: clean.dirs
+
+install: install.dirs
+
+test:	test.dirs
+
 format:
 	${GOFMT} .
