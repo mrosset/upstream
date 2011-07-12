@@ -1,11 +1,9 @@
 package xbps
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
-	. "github.com/str1ngs/go-ansi/color"
 )
 
 var (
@@ -17,7 +15,8 @@ var (
 )
 
 func init() {
-	log.SetPrefix(fmt.Sprintf("%s", Blue("masterdir: ")))
+	argv0 := os.Args[0]
+	log.SetPrefix(argv0 + ": ")
 	log.SetFlags(0)
 }
 

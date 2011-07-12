@@ -43,24 +43,35 @@ func NewCrawler(srcpath string) (*Crawler, os.Error) {
 }
 
 func (c *Crawler) Start() os.Error {
-	log.Println("staring", "crawl")
-	var (
-		done = 0
-	)
+	log.Println("staring", "crawl", "this could take some time...")
+
+	efile, err := os.Create("upstream_error.log")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer efile.Close()
+
+	nfile, err := os.Create("upstream_new.log")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer nfile.Close()
 
 	for _, t := range c.templates {
 		if t.Distfiles == "" {
 			continue
 		}
-		c.crawl(t)
-		done++
+		cr, err := crawl(t)
+		if err != nil {
+			fmt.Fprintf(efile, "%s\n", err)
+		}
+		if cr.New {
+			fmt.Fprintf(nfile, "%s\n", cr)
+		}
 	}
 	return nil
 }
 
-func (c *Crawler) Crawl(key string) {
-	c.crawl(c.templates[key])
-}
 
 func getParentUrl(t *xbps.Template) (string, string) {
 	t.Distfiles = strings.Trim(t.Distfiles, " ")
@@ -72,41 +83,54 @@ func getParentUrl(t *xbps.Template) (string, string) {
 	return url, file
 }
 
-func (c *Crawler) crawl(t *xbps.Template) {
+func Crawl(t *xbps.Template) (cr *CrawlResult, err os.Error) {
+	cr, err = crawl(t)
+	return cr, err
+}
+
+type CrawlResult struct {
+	Name     string
+	Vanilla  string
+	Upstream string
+	New      bool
+}
+
+func (this CrawlResult) String() string {
+	return fmt.Sprintf("%-20.20s upstream %10.10s vanilla %10.10s %v",
+		this.Name, this.Upstream, this.Vanilla, this.New)
+}
+
+func crawl(t *xbps.Template) (cr *CrawlResult, err os.Error) {
+	cr = &CrawlResult{Name: t.Pkgname}
 	defer func() {
 		err := recover()
 		if err != nil {
-			log.Println(t.Pkgname, err)
+			return
 		}
 	}()
 	rawurl, file := getParentUrl(t)
 	url, err := http.ParseURL(rawurl)
 	if err != nil {
-		log.Println(t.Pkgname, err)
 		return
 	}
 	// sourceforge sucks, make it suckless
 	if url.Host == "downloads.sourceforge.net" {
 		rawurl, err = getForgeUrl(t.Pkgname)
 		if err != nil {
-			log.Println(t.Pkgname, err)
 			return
 		}
 	}
 	res, err := client.Get(rawurl)
 	if err != nil {
-		log.Println(t.Pkgname, err)
 		return
 	}
 	defer res.Body.Close()
 	if res.StatusCode != 200 {
-		log.Println(t.Pkgname, fmt.Errorf("HTTP status %s", res.Status), rawurl)
-		return
+		return cr, fmt.Errorf("HTTP status %s", res.Status, rawurl)
 	}
 	rbuf := new(bytes.Buffer)
 	_, err = io.Copy(rbuf, res.Body)
 	if err != nil {
-		log.Println(t.Pkgname, err)
 		return
 	}
 	//regex := `%s[a-z0-9\-\.]+(%s)`
@@ -114,23 +138,15 @@ func (c *Crawler) crawl(t *xbps.Template) {
 	reg := regexp.MustCompile(fileToRegx(file))
 	results := reg.FindAllString(string(rbuf.Bytes()), -1)
 	if len(results) == 0 {
-		log.Println(t.Pkgname, "no distfiles found on", rawurl)
-		return
+		return cr, fmt.Errorf("no distfiles found on %s", rawurl)
 	}
 	vregx := regxVersion(file)
 	latest := findLatest(results, vregx)
-	if latest.Int > verInt(t.Version) {
-		newlog, err := os.OpenFile("upstream_new.log", os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
-		if err != nil {
-			log.Println(t.Pkgname, err)
-		}
-		defer newlog.Close()
-		mw := io.MultiWriter(os.Stderr, newlog)
-		if err != nil {
-			log.Println(t.Pkgname, err)
-		}
-		fmt.Fprintf(mw, "%-20.20s upstream %10.10s vanilla %10.10s %s\n", t.Pkgname, latest.String, t.Version, rawurl)
-	}
+	//if latest.Int > verInt(t.Version) {
+	cr.Upstream = latest.String
+	cr.Vanilla = t.Version
+	cr.New = latest.Int > verInt(t.Version)
+	return
 }
 
 type Latest struct {
