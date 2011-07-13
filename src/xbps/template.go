@@ -66,6 +66,8 @@ func FindTemplate(pkg, spath string) (tmpl *Template, err os.Error) {
 }
 
 func NewTemplate(file string) (*Template, os.Error) {
+	dir, _ := filepath.Split(file)
+	pname := filepath.Base(dir)
 	fd, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -107,7 +109,7 @@ func NewTemplate(file string) (*Template, os.Error) {
 	}
 	err = json.Unmarshal(output, template)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%-30.30s: %s", pname, err)
 	}
 	template.Path = file
 	return template, nil
@@ -137,7 +139,6 @@ func GetTemplates(spath string) (map[string]*Template, os.Error) {
 		}
 		t, err := NewTemplate(file)
 		if err != nil {
-			continue
 			return nil, err
 		}
 		ok++
@@ -145,12 +146,5 @@ func GetTemplates(spath string) (map[string]*Template, os.Error) {
 			templates[t.Pkgname] = t
 		}
 	}
-	/*
-		total := errors + linked + ok
-		fmt.Println("errors",errors)
-		fmt.Println("linked",linked)
-		fmt.Println("ok",ok)
-		fmt.Println("total",total)
-	*/
 	return templates, nil
 }

@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	xbpsBin  = "fakeroot xbps-bin.static -c %s -Ayr %s %s %s"
-	xbpsSrc  = "fakeroot xbps-src -C -m %s %s %s"
+	xbpsBin  = "xbps-bin.static -c %s -Ayr %s %s %s"
+	xbpsSrc  = "xbps-src -C -m %s %s %s"
 	mkIdx    = "xbps-src make-repoidx %s"
 	binCache = "/home/strings/bincache"
 	srcPath  = "/home/strings/github/vanilla/srcpkgs/"
