@@ -21,7 +21,6 @@ type Template struct {
 	Homepage    string "homepage"
 	License     string "license"
 	Checksum    string "checksum"
-	Path        string
 	Long_Desc   string "long_desc"
 	Build_Style string "build_style"
 }
@@ -42,6 +41,19 @@ func (this Template) ToSH() io.Reader {
 	return buf
 }
 
+func (this Template) Save(file string) (err os.Error) {
+	fd, err := os.Create(file)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+	buf, err := this.ToJson()
+	if err != nil {
+		return
+	}
+	io.Copy(fd, buf)
+	return
+}
 
 func (this Template) ToJson() (io.Reader, os.Error) {
 	in := new(bytes.Buffer)
@@ -111,17 +123,12 @@ func NewTemplate(file string) (*Template, os.Error) {
 	if err != nil {
 		return nil, fmt.Errorf("%-30.30s: %s", pname, err)
 	}
-	template.Path = file
 	return template, nil
 }
 
 func GetTemplates(spath string) (map[string]*Template, os.Error) {
 	os.Setenv("XBPS_SRCPKGDIR", spath)
-	var (
-		linked    = 0
-		ok        = 0
-		templates = map[string]*Template{}
-	)
+	var templates = map[string]*Template{}
 	files, err := filepath.Glob(spath + "/*/template")
 	if err != nil {
 		return nil, err
@@ -134,17 +141,27 @@ func GetTemplates(spath string) (map[string]*Template, os.Error) {
 			return nil, err
 		}
 		if di.FollowedSymlink {
-			linked++
 			continue
 		}
 		t, err := NewTemplate(file)
 		if err != nil {
 			return nil, err
 		}
-		ok++
 		if t != nil {
 			templates[t.Pkgname] = t
 		}
 	}
 	return templates, nil
+}
+
+
+func LoadJson(file string) (tmpl *Template, err os.Error) {
+	tmpl = new(Template)
+	fd, err := os.Open(file)
+	if err != nil {
+		return
+	}
+	defer fd.Close()
+	err = json.NewDecoder(fd).Decode(tmpl)
+	return
 }
