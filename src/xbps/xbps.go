@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -80,11 +81,10 @@ func RmPackFile(pkg string) (err os.Error) {
 }
 
 func Build(tmpl string, md *MasterDir) (err os.Error) {
-	rd, bd, err := GetDepends(tmpl)
+	depends, err := GetDepends(tmpl)
 	if err != nil {
 		return err
 	}
-	depends := append(rd, bd...)
 	log.Printf(lfmt, "depends", tmpl)
 	for _, d := range depends {
 		err = Install(d, md)
@@ -155,65 +155,90 @@ func NewCommand(format string, i ...interface{}) (cmd *exec.Cmd) {
 	return
 }
 
-func GetDepends(tmpl string) (rd, bd []string, err os.Error) {
-	rd, err = GetRunDepends(tmpl)
+func GetDepends(tmpl string) (depends []string, err os.Error) {
+	rd, err := GetRunDepends(tmpl)
 	if err != nil {
 		return
 	}
-	bd, err = GetBuildDepends(tmpl)
+	bd, err := GetBuildDepends(tmpl)
+	if err != nil {
+		return
+	}
+	depends = append(rd, bd...)
 	return
 }
 
 func GetRunDepends(tmpl string) (depends []string, err os.Error) {
-	b, err := Sh(fmt.Sprintf(printscript, tmpl, "run"))
+	b, err := Sh([]string{"run", tmpl})
 	if err != nil {
 		return
 	}
 	if len(b) == 0 {
 		return
 	}
+	if b[0] == ' ' {
+		b = b[1:]
+	}
 	depends = strings.Split(string(b), " ")
 	trimOper(depends)
+	sort.StringSlice(depends).Sort()
 	return
 }
 
 func GetBuildDepends(tmpl string) (depends []string, err os.Error) {
-	b, err := Sh(fmt.Sprintf(printscript, tmpl, "build"))
+	b, err := Sh([]string{"build", tmpl})
 	if err != nil {
 		return
 	}
 	if len(b) == 0 {
 		return
 	}
+	if b[0] == ' ' {
+		b = b[1:]
+	}
 	depends = strings.Split(string(b), " ")
 	trimOper(depends)
 	return
 }
 
-// Checks each run dependency and makes sure it is unique
-func ChkRunDepends(depends []string) (required map[string]bool, err os.Error) {
-	required = make(map[string]bool)
+// Checks each build dependency and makes sure it is unique
+func ChkBuildDepends(depends []string) (required []string, err os.Error) {
+	mreq := make(map[string]bool)
 	var (
 		visited = make(map[string]string)
 	)
 	// walk each depend
 	for _, d := range depends {
+		if !strings.HasSuffix(d, "-devel") {
+			continue
+		}
 		c, err := GetRunDepends(d)
 		if err != nil {
 			return
 		}
+
 		// walk each sub depend and mark it as visited
 		for _, sc := range c {
 			visited[sc] = d
+			// if this sub depend is in required remove it
+			if mreq[sc] {
+				fmt.Printf("%-20.20s provided by %s\n", sc, visited[sc])
+				mreq[sc] = false, false
+			}
 		}
+
 		// if we visited this depend before it is not required
 		_, exist := visited[d]
 		if !exist {
-			required[d] = true
+			mreq[d] = true
 		} else {
 			fmt.Printf("%-20.20s provided by %s\n", d, visited[d])
 		}
 	}
+	for r, _ := range mreq {
+		required = append(required, r)
+	}
+	sort.StringSlice(required).Sort()
 	return
 }
 
@@ -224,11 +249,9 @@ func trimOper(depends []string) {
 	}
 }
 
-func Sh(script string) (output []byte, err os.Error) {
-	buf := new(bytes.Buffer)
-	buf.WriteString(script)
-	cmd := exec.Command("sh")
-	cmd.Stdin = buf
+func Sh(args []string) (output []byte, err os.Error) {
+	helper := "/usr/local/libexec/xbps-src-getdeps-helper"
+	cmd := exec.Command(helper, args...)
 	output, err = cmd.Output()
 	if err != nil {
 		os.Stderr.Write(output)
@@ -237,7 +260,8 @@ func Sh(script string) (output []byte, err os.Error) {
 	return
 }
 
-var printscript = `
+/*
+`
 set -e 
 
 . /usr/local/etc/xbps-src.conf
@@ -251,3 +275,4 @@ setup_tmpl %s
 
 echo -n $%s_depends
 `
+*/
