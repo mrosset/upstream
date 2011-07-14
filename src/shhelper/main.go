@@ -24,13 +24,20 @@ func main() {
 	}
 	action := flag.Arg(0)
 	target := flag.Arg(1)
+
+	tmpl, err := xbps.FindTemplate(target, *srcPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	switch action {
 	case "shell":
-		tmpl, err := xbps.FindTemplate(target, *srcPath)
-		if err != nil {
-			log.Println(err)
-			os.Exit(1)
-		}
 		io.Copy(os.Stdout, tmpl.ToSH())
+	case "json":
+		js, err := tmpl.ToJson()
+		if err != nil {
+			log.Fatal(err)
+		}
+		io.Copy(os.Stdout, js)
 	}
 }
