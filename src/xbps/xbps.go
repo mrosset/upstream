@@ -76,14 +76,15 @@ func RmPackFile(pkg string) (err os.Error) {
 		}
 		return fmt.Errorf("expected one package to remove found %v", len(files))
 	}
-	panic("Should net reach here")
+	panic("Should not reach here")
 }
 
 func Build(tmpl string, md *MasterDir) (err os.Error) {
-	depends, err := GetDepends(tmpl)
+	rd, bd, err := GetDepends(tmpl)
 	if err != nil {
 		return err
 	}
+	depends := append(rd, bd...)
 	log.Printf(lfmt, "depends", tmpl)
 	for _, d := range depends {
 		err = Install(d, md)
@@ -154,17 +155,73 @@ func NewCommand(format string, i ...interface{}) (cmd *exec.Cmd) {
 	return
 }
 
-func GetDepends(tmpl string) (depends []string, err os.Error) {
-	b, err := Sh(fmt.Sprintf(printscript, tmpl))
+func GetDepends(tmpl string) (rd, bd []string, err os.Error) {
+	rd, err = GetRunDepends(tmpl)
+	if err != nil {
+		return
+	}
+	bd, err = GetBuildDepends(tmpl)
+	return
+}
+
+func GetRunDepends(tmpl string) (depends []string, err os.Error) {
+	b, err := Sh(fmt.Sprintf(printscript, tmpl, "run"))
 	if err != nil {
 		return
 	}
 	if len(b) == 0 {
 		return
 	}
-	b = bytes.Trim(b, " ")
 	depends = strings.Split(string(b), " ")
+	trimOper(depends)
 	return
+}
+
+func GetBuildDepends(tmpl string) (depends []string, err os.Error) {
+	b, err := Sh(fmt.Sprintf(printscript, tmpl, "build"))
+	if err != nil {
+		return
+	}
+	if len(b) == 0 {
+		return
+	}
+	depends = strings.Split(string(b), " ")
+	trimOper(depends)
+	return
+}
+
+// Checks each run dependency and makes sure it is unique
+func ChkRunDepends(depends []string) (required map[string]bool, err os.Error) {
+	required = make(map[string]bool)
+	var (
+		visited = make(map[string]string)
+	)
+	// walk each depend
+	for _, d := range depends {
+		c, err := GetRunDepends(d)
+		if err != nil {
+			return
+		}
+		// walk each sub depend and mark it as visited
+		for _, sc := range c {
+			visited[sc] = d
+		}
+		// if we visited this depend before it is not required
+		_, exist := visited[d]
+		if !exist {
+			required[d] = true
+		} else {
+			fmt.Printf("%-20.20s provided by %s\n", d, visited[d])
+		}
+	}
+	return
+}
+
+func trimOper(depends []string) {
+	for i, d := range depends {
+		kv := strings.Split(d, ">=")
+		depends[i] = kv[0]
+	}
 }
 
 func Sh(script string) (output []byte, err os.Error) {
@@ -192,5 +249,5 @@ set_defvars
 
 setup_tmpl %s
 
-echo -n $run_depends $build_depends
+echo -n $%s_depends
 `

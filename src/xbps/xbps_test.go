@@ -2,6 +2,7 @@ package xbps
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -46,25 +47,39 @@ func TestSerializeAll(t *testing.T) {
 	}
 }
 
-/*
-func TestPrint(t *testing.T) {
-	tmpl, err := FindTemplate("bash", spath)
+func TestDepends(t *testing.T) {
+	name := "gnome-bluetooth-devel"
+	rd, err := GetRunDepends(name)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
-	in := new(bytes.Buffer)
-	err = json.NewEncoder(in).Encode(tmpl)
+	req, err := ChkRunDepends(rd)
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
-	out := new(bytes.Buffer)
-	err = json.Indent(out, in.Bytes(), "", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	io.Copy(os.Stderr, out)
+	fmt.Printf("\n**** (%s) Template Run Depends ****\n", name)
+	printSlice(rd)
+	fmt.Printf("\n**** (%s) Actual Run Depend ****\n", name)
+	printMap(req)
+
+	fmt.Printf("\n%d template depends\n", len(rd))
+	fmt.Printf("%2v actual depends\n", len(req))
+	fmt.Printf("%2v removed\n", len(rd)-len(req))
 }
 
+
+func printSlice(slice []string) {
+	for _, s := range slice {
+		fmt.Println(s)
+	}
+}
+
+func printMap(dmap map[string]bool) {
+	for k, _ := range dmap {
+		fmt.Println(k)
+	}
+}
+/*
 func TestNewMaster(t *testing.T) {
 	var err os.Error
 	master, err = NewMasterDir("masterdir", "/home/strings/masters")
