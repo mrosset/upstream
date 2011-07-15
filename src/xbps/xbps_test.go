@@ -2,22 +2,22 @@ package xbps
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
+	"strings"
 	"testing"
 )
 
 
 var (
-	tpacks = []string{"ncdu"}
 	master *MasterDir
 	spath  = "/home/strings/github/vanilla/srcpkgs"
 	dprint = false
 )
 
+
+var tpacks = []string{"ncdu"}
 
 func TestTemplate(t *testing.T) {
 	for _, pkg := range tpacks {
@@ -49,10 +49,12 @@ func TestSerializeAll(t *testing.T) {
 		if dprint {
 			io.Copy(os.Stderr, buf)
 		}
-		err := tmpl.Save("./tmp/" + tmpl.Pkgname + ".json")
-		if err != nil {
-			t.Error(err)
-		}
+		/*
+			err := tmpl.Save("./tmp/" + tmpl.Pkgname + ".json")
+			if err != nil {
+				t.Error(err)
+			}
+		*/
 	}
 }
 
@@ -70,60 +72,44 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-func TestRunDepend(t *testing.T) {
-	d, err := GetRunDepends("telepathy-logger-devel")
+func DisableTrims(t *testing.T) {
+	ts, err := GetTemplates(spath)
 	if err != nil {
 		t.Error(err)
 	}
-	fmt.Println("RUN ", d, "\n")
+	for _, tm := range ts {
+		_, err := GetAllDepends(tm.Pkgname)
+		if err != nil {
+			t.Errorf("%s: %s", tm.Pkgname, err)
+		}
+	}
 }
 
-func TestBuildDepend(t *testing.T) {
-	d, err := GetBuildDepends("gnome-shell")
-	if err != nil {
-		t.Error(err)
-	}
-	fmt.Println("BUILD", d, "\n")
+type DepTest struct {
+	name     string
+	expected string
 }
+
+
+var deptests = []DepTest{
+	{"fontconfig", "pkg-config freetype-devel expat-devel"},
+	{"libxslt-devel", "libgcrypt-devel libxml2-devel python-devel libxslt"},
+}
+
 
 func TestDepends(t *testing.T) {
-	for _, name := range []string{"xorg-server", "gnome-shell", "bash"} {
-		fmt.Printf("checking depends for (%s)\n", name)
-		rd, err := GetBuildDepends(name)
-		sort.StringSlice(rd).Sort()
+	for _, test := range deptests {
+		depends, err := ChkDupDepends(test.name)
 		if err != nil {
 			t.Error(err)
 		}
-		req, err := ChkBuildDepends(rd)
-		if err != nil {
-			t.Error(err)
+		result := strings.Join(depends, " ")
+		if result != test.expected {
+			t.Errorf("%s: expected %s got %s", test.name, test.expected, result)
 		}
-		buf := new(bytes.Buffer)
-		fmt.Fprintf(buf, "\n**** (%s) Template Build Depends ****\n", name)
-		printSlice(buf, rd)
-		fmt.Fprintf(buf, "\n**** (%s) Actual Build Depend ****\n", name)
-		printSlice(buf, req)
-
-		fmt.Fprintf(buf, "\n%d template depends\n", len(rd))
-		fmt.Fprintf(buf, "%2v actual depends\n", len(req))
-		fmt.Fprintf(buf, "%2v removed\n", len(rd)-len(req))
-		io.Copy(os.Stderr, buf)
 	}
 }
 
-
-func printSlice(out io.Writer, slice []string) {
-	for _, s := range slice {
-		fmt.Fprintln(out, s)
-	}
-}
-
-
-func printMap(out io.Writer, dmap map[string]bool) {
-	for k, _ := range dmap {
-		fmt.Fprintln(out, k)
-	}
-}
 
 /*
 func TestNewMaster(t *testing.T) {
@@ -135,6 +121,7 @@ func TestNewMaster(t *testing.T) {
 	}
 }
 
+
 func TestSeed(t *testing.T) {
 	err := Seed(master)
 	if err != nil {
@@ -142,6 +129,7 @@ func TestSeed(t *testing.T) {
 		t.Fatal()
 	}
 }
+
 
 func TestBuild(t *testing.T) {
 	for _, pkg := range packs {
@@ -152,6 +140,7 @@ func TestBuild(t *testing.T) {
 		}
 	}
 }
+
 
 func TestPackage(t *testing.T) {
 	for _, pkg := range packs {

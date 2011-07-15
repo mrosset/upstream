@@ -9,7 +9,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 )
 
@@ -81,7 +80,7 @@ func RmPackFile(pkg string) (err os.Error) {
 }
 
 func Build(tmpl string, md *MasterDir) (err os.Error) {
-	depends, err := GetDepends(tmpl)
+	depends, err := GetAllDepends(tmpl)
 	if err != nil {
 		return err
 	}
@@ -133,7 +132,7 @@ func Clean(md *MasterDir) (err os.Error) {
 }
 
 func IsInstalled(pack string, md *MasterDir) bool {
-	cmd := NewCommand(xbpsBin, binCache, md.TargetPath, "show", TrimPack(pack))
+	cmd := NewCommand(xbpsBin, binCache, md.TargetPath, "show", TrimOp(pack))
 	err := cmd.Run()
 	if err != nil {
 		return false
@@ -141,10 +140,8 @@ func IsInstalled(pack string, md *MasterDir) bool {
 	return true
 }
 
-func TrimPack(pack string) string {
-	return strings.Split(pack, ">")[0]
-}
 
+// Creates a new exec.Cmd from a Printf style format
 func NewCommand(format string, i ...interface{}) (cmd *exec.Cmd) {
 	args := strings.Split(fmt.Sprintf(format, i...), " ")
 	cmd = exec.Command(args[0], args[1:]...)
@@ -155,12 +152,13 @@ func NewCommand(format string, i ...interface{}) (cmd *exec.Cmd) {
 	return
 }
 
-func GetDepends(tmpl string) (depends []string, err os.Error) {
-	rd, err := GetRunDepends(tmpl)
+// Get all dependancies for a template
+func GetAllDepends(tmpl string) (depends []string, err os.Error) {
+	rd, err := GetDepends("run", tmpl)
 	if err != nil {
 		return
 	}
-	bd, err := GetBuildDepends(tmpl)
+	bd, err := GetDepends("build", tmpl)
 	if err != nil {
 		return
 	}
@@ -168,8 +166,9 @@ func GetDepends(tmpl string) (depends []string, err os.Error) {
 	return
 }
 
-func GetRunDepends(tmpl string) (depends []string, err os.Error) {
-	b, err := Sh([]string{"run", tmpl})
+// Get run/buil/all depends for a template
+func GetDepends(kind, tmpl string) (depends []string, err os.Error) {
+	b, err := Sh([]string{kind, tmpl})
 	if err != nil {
 		return
 	}
@@ -180,43 +179,33 @@ func GetRunDepends(tmpl string) (depends []string, err os.Error) {
 		b = b[1:]
 	}
 	depends = strings.Split(string(b), " ")
-	trimOper(depends)
-	sort.StringSlice(depends).Sort()
-	return
-}
-
-func GetBuildDepends(tmpl string) (depends []string, err os.Error) {
-	b, err := Sh([]string{"build", tmpl})
-	if err != nil {
-		return
-	}
-	if len(b) == 0 {
-		return
-	}
-	if b[0] == ' ' {
-		b = b[1:]
-	}
-	depends = strings.Split(string(b), " ")
-	trimOper(depends)
+	TrimOps(depends)
 	return
 }
 
 // Checks each build dependency and makes sure it is unique
-func ChkBuildDepends(depends []string) (required []string, err os.Error) {
-	mreq := make(map[string]bool)
+func ChkDupDepends(name string) (required []string, err os.Error) {
+	fmt.Printf("**** Checking Depends For (%s) ****\n", name)
 	var (
+		mreq    = make(map[string]bool)
 		visited = make(map[string]string)
+		depends = []string{}
 	)
+	if isSubTmpl(name) {
+		depends, err = GetDepends("run", name)
+	} else {
+		depends, err = GetDepends("build", name)
+	}
+	if err != nil {
+		return
+	}
 	// walk each depend
 	for _, d := range depends {
-		if !strings.HasSuffix(d, "-devel") {
-			continue
-		}
-		c, err := GetRunDepends(d)
+		var c []string
+		c, err = GetDepends("run", d)
 		if err != nil {
 			return
 		}
-
 		// walk each sub depend and mark it as visited
 		for _, sc := range c {
 			visited[sc] = d
@@ -226,7 +215,6 @@ func ChkBuildDepends(depends []string) (required []string, err os.Error) {
 				mreq[sc] = false, false
 			}
 		}
-
 		// if we visited this depend before it is not required
 		_, exist := visited[d]
 		if !exist {
@@ -238,41 +226,48 @@ func ChkBuildDepends(depends []string) (required []string, err os.Error) {
 	for r, _ := range mreq {
 		required = append(required, r)
 	}
-	sort.StringSlice(required).Sort()
+	fmt.Printf("\n**** (%s) Template Build Depends ****\n", name)
+	printSlice(depends)
+	fmt.Printf("\n**** (%s) Actual Build Depend ****\n", name)
+	printSlice(required)
+	fmt.Println()
 	return
 }
 
-func trimOper(depends []string) {
-	for i, d := range depends {
-		kv := strings.Split(d, ">=")
-		depends[i] = kv[0]
+func TrimOp(pack string) string {
+	switch len(strings.Split(pack, ">")) {
+	case 2:
+		return strings.Split(pack, ">")[0]
+	case 1:
+		return strings.Split(pack, "<")[0]
 	}
+	panic(fmt.Sprintf("%s: Could not trim operator", pack))
+}
+
+func TrimOps(depends []string) {
+	for i, d := range depends {
+		depends[i] = TrimOp(d)
+	}
+}
+
+func printSlice(slice []string) {
+	for _, s := range slice {
+		fmt.Println(s)
+	}
+}
+
+
+func isSubTmpl(tmpl string) bool {
+	file := fmt.Sprintf("%s/%s/%s.template", srcPath, tmpl, tmpl)
+	return fileExists(file)
 }
 
 func Sh(args []string) (output []byte, err os.Error) {
 	helper := "/usr/local/libexec/xbps-src-getdeps-helper"
 	cmd := exec.Command(helper, args...)
-	output, err = cmd.Output()
+	output, err = cmd.CombinedOutput()
 	if err != nil {
-		os.Stderr.Write(output)
-		return
+		return nil, fmt.Errorf("%s: %s %s", helper, err, output)
 	}
 	return
 }
-
-/*
-`
-set -e 
-
-. /usr/local/etc/xbps-src.conf
-. /usr/local/share/xbps-src/shutils/init_funcs.sh
-set_defvars
-. /usr/local/share/xbps-src/shutils/tmpl_funcs.sh
-. /usr/local/share/xbps-src/shutils/common_funcs.sh
-. /usr/local/share/xbps-src/shutils/builddep_funcs.sh
-
-setup_tmpl %s
-
-echo -n $%s_depends
-`
-*/
