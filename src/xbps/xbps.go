@@ -263,7 +263,7 @@ func isSubTmpl(tmpl string) bool {
 }
 
 func Sh(args []string) (output []byte, err os.Error) {
-	helper := "/usr/local/libexec/xbps-src-getdeps-helper"
+	helper := "/usr/local/libexec/getdeps-helper"
 	cmd := exec.Command(helper, args...)
 	output, err = cmd.CombinedOutput()
 	if err != nil {
