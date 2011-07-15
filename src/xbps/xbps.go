@@ -231,15 +231,29 @@ func ChkDupDepends(name string) (required []string, err os.Error) {
 	fmt.Println()
 	return
 }
-
+// Remove all version chars from package name
 func TrimOp(pack string) string {
-	switch len(strings.Split(pack, ">")) {
-	case 2:
-		return strings.Split(pack, ">")[0]
-	case 1:
-		return strings.Split(pack, "<")[0]
+	var (
+		name    []int
+		version []int
+	)
+	var prefix = true
+	for _, c := range pack {
+		switch c {
+		case '<', '>', '=', '[', ']', '*', '.':
+			version = append(version, c)
+			prefix = false
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+			if prefix {
+				name = append(name, c)
+			} else {
+				version = append(version, c)
+			}
+		default:
+			name = append(name, c)
+		}
 	}
-	panic(fmt.Sprintf("%s: Could not trim operator", pack))
+	return string(name)
 }
 
 func TrimOps(depends []string) {
