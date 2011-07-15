@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"exec"
 	"fmt"
-	. "github.com/str1ngs/go-ansi/color"
 	"io"
 	"log"
 	"os"
@@ -146,7 +145,7 @@ func NewCommand(format string, i ...interface{}) (cmd *exec.Cmd) {
 	args := strings.Split(fmt.Sprintf(format, i...), " ")
 	cmd = exec.Command(args[0], args[1:]...)
 	bufout.Reset()
-	bufout.WriteString(fmt.Sprintf("%s\n", Yellow(strings.Join(cmd.Args, " "))))
+	bufout.WriteString(fmt.Sprintf("%s\n", strings.Join(cmd.Args, " ")))
 	cmd.Stdout = bufout
 	cmd.Stderr = bufout
 	return
