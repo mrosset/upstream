@@ -165,7 +165,7 @@ func GetAllDepends(tmpl string) (depends []string, err os.Error) {
 	return
 }
 
-// Get run/buil/all depends for a template
+// Get run/build depends for a template
 func GetDepends(kind, tmpl string) (depends []string, err os.Error) {
 	b, err := Sh([]string{kind, tmpl})
 	if err != nil {
@@ -174,9 +174,8 @@ func GetDepends(kind, tmpl string) (depends []string, err os.Error) {
 	if len(b) == 0 {
 		return
 	}
-	if b[0] == ' ' {
-		b = b[1:]
-	}
+	b = bytes.Trim(b, " ")
+	b = bytes.Trim(b, "\n")
 	depends = strings.Split(string(b), " ")
 	TrimOps(depends)
 	return
