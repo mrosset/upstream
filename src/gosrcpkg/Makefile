@@ -1,6 +1,8 @@
 include $(GOROOT)/src/Make.inc
 
-TARG=shhelper
+export XBPS_SRCPKGDIR:=/home/strings/github/vanilla/srcpkgs
+
+TARG=gosrcpkg
 GOFILES=main.go
 GOFMT=gofmt -l -w
 
@@ -9,6 +11,7 @@ include $(GOROOT)/src/Make.cmd
 format:
 	    ${GOFMT} .
 
-test:
+test: clean format all
 	./${TARG} json bash
 	./${TARG} shell bash
+	./${TARG} chkdepends fontconfig
