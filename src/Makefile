@@ -5,6 +5,7 @@ export XBPS_SRCPKGDIR:=/home/strings/github/vanilla/srcpkgs
 all: $(patsubst %,%.all,$(DIRS))
 test: $(patsubst %,%.test,$(DIRS))
 clean: $(patsubst %,%.clean,$(DIRS))
+format: $(patsubst %,%.format,$(DIRS))
 
 %.all:
 	 $(MAKE) -C $* all
@@ -15,4 +16,5 @@ clean: $(patsubst %,%.clean,$(DIRS))
 %.clean:
 	$(MAKE) -C $* clean
 
-
+%.format:
+	 $(MAKE) -C $* format

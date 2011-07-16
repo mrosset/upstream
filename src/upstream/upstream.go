@@ -28,10 +28,6 @@ const (
 	drelease = "wheezy"
 )
 
-var (
-	srcPath = flag.String("path", "/home/strings/github/vanilla/srcpkgs/", "path to srcpkgs")
-)
-
 func init() {
 	log.SetFlags(0)
 }
@@ -61,7 +57,7 @@ func main() {
 
 func Check(names []string) {
 	for _, n := range names {
-		t, err := xbps.FindTemplate(n, *srcPath)
+		t, err := xbps.FindTemplate(n, xbps.SRCPKGDIR)
 		if err != nil {
 			fmt.Printf("%s: %s\n", n, err)
 			continue
@@ -77,7 +73,7 @@ func docrawl() {
 		"xstow",
 	}
 	_ = ps
-	c, err := NewCrawler(*srcPath)
+	c, err := NewCrawler(xbps.SRCPKGDIR)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(0)
@@ -97,7 +93,7 @@ func checkFatal(err os.Error) {
 }
 
 func checkTemplates() os.Error {
-	templates, err := xbps.GetTemplates(*srcPath)
+	templates, err := xbps.GetTemplates(xbps.SRCPKGDIR)
 	if err != nil {
 		return err
 	}

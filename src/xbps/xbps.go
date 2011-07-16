@@ -12,15 +12,34 @@ import (
 )
 
 var (
-	xbpsBin  = "xbps-bin.static -c %s -Ayr %s %s %s"
-	xbpsSrc  = "xbps-src -C -m %s %s %s"
-	mkIdx    = "xbps-src make-repoidx %s"
-	binCache = "/home/strings/bincache"
-	srcPath  = "/home/strings/github/vanilla/srcpkgs/"
-	lfmt     = "%-10.10s %s"
-	pkgfmt   = "%s-%s.x86_64.xbps"
-	bufout   = new(bytes.Buffer)
+	xbpsBin   = "xbps-bin.static -c %s -Ayr %s %s %s"
+	xbpsSrc   = "xbps-src -C -m %s %s %s"
+	mkIdx     = "xbps-src make-repoidx %s"
+	binCache  = "/home/strings/bincache"
+	lfmt      = "%-10.10s %s"
+	SRCPKGDIR string
+	pkgfmt    = "%s-%s.x86_64.xbps"
+	bufout    = new(bytes.Buffer)
 )
+
+func init() {
+	argv0 := os.Args[0]
+	log.SetPrefix(argv0 + ": ")
+	log.SetFlags(log.Lshortfile)
+
+	SRCPKGDIR = os.Getenv("XBPS_SRCPKGDIR")
+	if SRCPKGDIR == "" {
+		srcerror()
+	}
+	_, err := os.Stat(SRCPKGDIR)
+	if err != nil {
+		srcerror()
+	}
+}
+
+func srcerror() {
+	log.Fatal("you must set XBPS_SRCPKGDIR enviroment variable to use xbps-go")
+}
 
 func HandleError(err os.Error) {
 	log.Print(err)
@@ -51,7 +70,7 @@ func Install(pack string, md *MasterDir) (err os.Error) {
 }
 
 func RmPackFile(pkg string) (err os.Error) {
-	tmpl, err := FindTemplate(pkg, srcPath)
+	tmpl, err := FindTemplate(pkg, SRCPKGDIR)
 	if err != nil {
 		return err
 	}
@@ -264,7 +283,7 @@ func TrimOps(depends []string) {
 }
 
 func isSubTmpl(tmpl string) bool {
-	file := fmt.Sprintf("%s/%s/%s.template", srcPath, tmpl, tmpl)
+	file := fmt.Sprintf("%s/%s/%s.template", SRCPKGDIR, tmpl, tmpl)
 	return fileExists(file)
 }
 

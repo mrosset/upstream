@@ -8,15 +8,6 @@ import (
 	"xbps"
 )
 
-var (
-	srcPath = flag.String("path", "/home/strings/github/vanilla/srcpkgs/", "path to srcpkgs")
-)
-
-func init() {
-	log.SetPrefix("")
-	log.SetFlags(log.Lshortfile)
-}
-
 func main() {
 	flag.Parse()
 	if len(flag.Args()) == 0 {
@@ -25,7 +16,7 @@ func main() {
 	action := flag.Arg(0)
 	target := flag.Arg(1)
 
-	tmpl, err := xbps.FindTemplate(target, *srcPath)
+	tmpl, err := xbps.FindTemplate(target, xbps.SRCPKGDIR)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -39,5 +30,10 @@ func main() {
 			log.Fatal(err)
 		}
 		io.Copy(os.Stdout, js)
+	case "chkdepends":
+		_, err := xbps.ChkDupDepends(target)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
