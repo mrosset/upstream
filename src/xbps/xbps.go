@@ -139,7 +139,6 @@ func IsInstalled(pack string, md *MasterDir) bool {
 	return true
 }
 
-
 // Creates a new exec.Cmd from a Printf style format
 func NewCommand(format string, i ...interface{}) (cmd *exec.Cmd) {
 	args := strings.Split(fmt.Sprintf(format, i...), " ")
@@ -181,7 +180,6 @@ func GetDepends(kind, tmpl string) (depends []string, err os.Error) {
 	return
 }
 
-// Checks each build dependency and makes sure it is unique
 func ChkDupDepends(name string) (required []string, err os.Error) {
 	fmt.Printf("**** Checking Depends For (%s) ****\n", name)
 	var (
@@ -224,13 +222,16 @@ func ChkDupDepends(name string) (required []string, err os.Error) {
 	for r, _ := range mreq {
 		required = append(required, r)
 	}
-	fmt.Printf("\n**** (%s) Template Build Depends ****\n", name)
-	printSlice(depends)
-	fmt.Printf("\n**** (%s) Actual Build Depend ****\n", name)
-	printSlice(required)
+	fmt.Printf("\n*** The following lines must be removed from (%s) *** \n\n", name)
+	for _, d := range depends {
+		if !sContains(required, d) {
+			fmt.Println("Add_dependancy build", d)
+		}
+	}
 	fmt.Println()
 	return
 }
+
 // Remove all version chars from package name
 func TrimOp(pack string) string {
 	var (
@@ -261,13 +262,6 @@ func TrimOps(depends []string) {
 		depends[i] = TrimOp(d)
 	}
 }
-
-func printSlice(slice []string) {
-	for _, s := range slice {
-		fmt.Println(s)
-	}
-}
-
 
 func isSubTmpl(tmpl string) bool {
 	file := fmt.Sprintf("%s/%s/%s.template", srcPath, tmpl, tmpl)

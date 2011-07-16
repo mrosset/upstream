@@ -23,3 +23,12 @@ func unExpand(path string) string {
 	}
 	return path
 }
+
+func sContains(slice []string, s string) bool {
+	for _, v := range slice {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
